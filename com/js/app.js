@@ -7,9 +7,18 @@ import * as sodiumHelpers from './sodium-helpers.js';
 
 const $ = (id) => document.getElementById(id);
 
-// In the browser the API is same-origin (base = ''). For local dev against a
-// separately-hosted API, set window.COM_API_BASE before this script loads.
-const API_BASE = (typeof window !== 'undefined' && window.COM_API_BASE) || '';
+// Resolve API base using the same priority order as api.js:
+//   1. window.COM_API_BASE  (set before app.js loads, e.g. in a deploy-env script)
+//   2. <meta name="com-api-base" content="...">  (set in com.html for a specific deploy)
+//   3. '' (same-origin — works for local dev and same-origin deployments)
+const API_BASE = (() => {
+  if (typeof window !== 'undefined') {
+    if (window.COM_API_BASE) return window.COM_API_BASE;
+    const meta = document.querySelector('meta[name="com-api-base"]');
+    if (meta && meta.content) return meta.content;
+  }
+  return '';
+})();
 
 let session = null;
 let activeCid = null;
@@ -42,6 +51,42 @@ $('loginForm').addEventListener('submit', async (e) => {
     session?.destroy();
     session = null;
   } finally {
+    $('loginBtn').disabled = false;
+  }
+});
+
+// ── register (first-time setup) ───────────────────────────────────────────
+// A user row must already exist (seeded by admin). This registers the OPAQUE
+// credential + uploads the identity keypair, then auto-logs in.
+$('registerBtn').addEventListener('click', async () => {
+  $('loginError').textContent = '';
+  const passphrase = $('passphrase').value;
+  const honeypot = $('username').value;
+
+  if (honeypot.trim()) {
+    $('loginError').textContent = 'Sign-in failed.';
+    return;
+  }
+  if (!passphrase) {
+    $('loginError').textContent = 'Enter your passphrase first.';
+    return;
+  }
+
+  $('registerBtn').disabled = true;
+  $('loginBtn').disabled = true;
+  $('loginError').textContent = 'Setting up your account…';
+  try {
+    session = new Session({ base: API_BASE });
+    const me = await session.registerFlow(passphrase, API_BASE);
+    $('passphrase').value = ''; // clear the secret from the DOM immediately
+    $('loginError').textContent = '';
+    enterChat(me);
+  } catch (err) {
+    $('loginError').textContent = 'Registration failed. Check your passphrase or ask your admin.';
+    session?.destroy();
+    session = null;
+  } finally {
+    $('registerBtn').disabled = false;
     $('loginBtn').disabled = false;
   }
 });

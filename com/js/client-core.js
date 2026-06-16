@@ -33,6 +33,42 @@ export class Session {
     if (fetchImpl) api.setFetch(this.fetchImpl);
   }
 
+  // registerFlow(passphrase) — full client self-registration for a user whose
+  // USER ROW already exists (seeded by an admin or seed-admin). Runs:
+  //   1. OPAQUE register (start → finish) — establishes the OPAQUE record on the server.
+  //   2. Generate an X25519 identity keypair via sodium.
+  //   3. Wrap the private key under the OPAQUE export_key (secretbox, in-memory only).
+  //   4. Upload record + public_key + wrapped_private_key via /api/opaque/register/finish.
+  //   5. Auto-login immediately (loginFlow) so the caller lands in the chat.
+  // Returns the same `me` object loginFlow returns.
+  // Nothing is persisted — all key material lives only in memory.
+  async registerFlow(passphrase, base = this.base) {
+    await sodium.ready();
+    this.base = base;
+    api.setBase(base);
+    if (this.fetchImpl) api.setFetch(this.fetchImpl);
+
+    const nickname = nicknameFromPassphrase(passphrase);
+
+    // Step 1: OPAQUE registration ceremony.
+    const { record, exportKey } = await opaque.register(passphrase, nickname, base, this.fetchImpl);
+
+    // Step 2+3: generate identity keypair and wrap the private key.
+    const id = sodium.newIdentityKeypair();
+    const wrappedPrivateKey = sodium.wrapPrivateKey(id.privateKey, exportKey);
+
+    // Step 4: upload OPAQUE record + identity keys.
+    await opaque.registerFinishUpload(
+      nickname,
+      { record, publicKey: id.publicKey, wrappedPrivateKey },
+      base,
+      this.fetchImpl,
+    );
+
+    // Step 5: auto-login so the session is fully established.
+    return this.loginFlow(passphrase, base);
+  }
+
   // loginFlow(passphrase) — full client login: OPAQUE -> token -> unwrap private
   // key -> open every sealed conversation GROUP_KEY. Holds them in memory.
   async loginFlow(passphrase, base = this.base) {
