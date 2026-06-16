@@ -104,7 +104,12 @@ function enterChat(me) {
   $('logoutBtn').hidden = false;
   renderConvList(me.conversations || []);
   const first = (me.conversations || [])[0];
-  if (first) selectConversation(first.id);
+  if (first) {
+    selectConversation(first.id);
+    // Land on the conversation list on phones; the first thread is preloaded
+    // behind it and a tap (or the wide-screen layout) reveals it.
+    showList();
+  }
   connectWS();
   refreshOnboardingPanels().catch(() => {});
 }
@@ -339,9 +344,24 @@ function renderConvList(convs) {
   }
 }
 
+// ── mobile single-panel navigation ───────────────────────────────────────────
+// On phones the sidebar (list) and thread occupy the full width one at a time.
+// Adding `show-thread` slides the thread in; the back button clears it.
+// On wide screens (>=820px) CSS keeps both panes visible and the back button hidden.
+function showThread() {
+  $('chatView').classList.add('show-thread');
+  $('backBtn').hidden = false;
+}
+function showList() {
+  $('chatView').classList.remove('show-thread');
+  $('backBtn').hidden = true;
+}
+$('backBtn')?.addEventListener('click', showList);
+
 // ── conversation rendering ───────────────────────────────────────────────────
 async function selectConversation(cid) {
   activeCid = cid;
+  showThread();
   $('messages').innerHTML = '';
   try {
     const rows = await session.loadConversation(cid);
@@ -479,6 +499,8 @@ function lock() {
   ws = null;
   activeCid = null;
   $('chatView').hidden = true;
+  $('chatView').classList.remove('show-thread');
+  $('backBtn').hidden = true;
   $('loginView').hidden = false;
   $('who').hidden = true;
   $('logoutBtn').hidden = true;
