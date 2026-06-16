@@ -6,7 +6,7 @@
 // only in memory. A stale or poisoned cache of crypto code would break the trust
 // model, so the shell is served network-first with a cache fallback for offline
 // install only.
-const SHELL_CACHE = 'com-shell-v3';
+const SHELL_CACHE = 'com-shell-v4';
 const SHELL = [
   './com.html',
   './css/style.css',
@@ -20,7 +20,9 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(SHELL_CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // 'reload' bypasses the HTTP cache so we never cache a stale shell on install.
+  const fresh = SHELL.map((u) => new Request(u, { cache: 'reload' }));
+  event.waitUntil(caches.open(SHELL_CACHE).then((c) => c.addAll(fresh)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
@@ -43,7 +45,8 @@ self.addEventListener('fetch', (event) => {
 
   // Static shell: network-first (fresh crypto code), fall back to cache for offline install.
   event.respondWith(
-    fetch(event.request)
+    // 'reload' bypasses the ~10-min GitHub Pages HTTP cache so crypto/UI code is always fresh online.
+    fetch(event.request, { cache: 'reload' })
       .then((res) => {
         // Only cache our own same-origin shell assets.
         if (url.origin === self.location.origin && SHELL.some((p) => url.pathname.endsWith(p.replace('./', '/')))) {
