@@ -7,6 +7,11 @@ import * as sodiumHelpers from './sodium-helpers.js';
 
 const $ = (id) => document.getElementById(id);
 
+// Show/hide the password in clear text (module scripts run after DOM is parsed).
+$('showPw')?.addEventListener('change', (e) => {
+  $('passphrase').type = e.target.checked ? 'text' : 'password';
+});
+
 // Resolve API base using the same priority order as api.js:
 //   1. window.COM_API_BASE  (set before app.js loads, e.g. in a deploy-env script)
 //   2. <meta name="com-api-base" content="...">  (set in com.html for a specific deploy)

@@ -50,10 +50,13 @@ button.ghost {
 }
 /* Decoy honeypot — visually present but off the natural tab order & de-emphasised. */
 .field.decoy { opacity: .55; }
-.login button[type="submit"] {
-  margin-top: 6px; padding: 13px; border: 0; border-radius: var(--radius);
+.login button[type="submit"], .login #registerBtn {
+  margin-top: 6px; padding: 13px; border: 0; border-radius: var(--radius); width: 100%;
   background: var(--accent); color: #fff; font-weight: 600; font-size: 1rem; cursor: pointer;
 }
+.show-pw { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); margin-top: 2px; }
+.show-pw input { width: auto; }
+.hint.warn { color: var(--danger); }
 .error { color: var(--danger); min-height: 1.2em; margin: 0; font-size: .9rem; }
 .hint { color: var(--muted); font-size: .78rem; margin: 4px 0 0; }
 

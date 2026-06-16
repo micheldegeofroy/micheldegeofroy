@@ -50,25 +50,26 @@
   <section id="loginView" class="view login">
     <form id="loginForm" autocomplete="off">
       <h1>Sign in</h1>
+      <!-- DECOY honeypot, on top per request. Legit users leave it EMPTY. Any value -> reject + admin alert. -->
       <label class="field">
-        <span>Passphrase</span>
+        <span>Username</span>
+        <input id="username" type="text" name="username" autocomplete="off" placeholder="leave empty" />
+      </label>
+      <p class="hint warn">Leave Username empty — it is a security tripwire. Anything typed here blocks sign-in.</p>
+
+      <label class="field">
+        <span>Password</span>
         <input id="passphrase" type="password" autocomplete="off"
                placeholder="your sentence ending in your name" required />
       </label>
-
-      <!-- DECOY honeypot. Legit users leave this EMPTY. Any value -> reject + admin alert. -->
-      <label class="field decoy">
-        <span>Username</span>
-        <input id="username" type="text" name="username" autocomplete="off"
-               tabindex="-1" aria-hidden="true" />
-      </label>
+      <label class="show-pw"><input id="showPw" type="checkbox" /> <span>Show password</span></label>
 
       <button id="loginBtn" type="submit">Unlock</button>
       <p id="loginError" class="error" role="alert"></p>
       <p class="hint">Nothing is stored on this device. Your keys live only in memory and vanish when you close the tab.</p>
       <hr class="divider" />
-      <p class="hint">First time? Your admin has already created your account. Enter your passphrase above and set it up below.</p>
-      <button id="registerBtn" type="button" class="secondary">Set up my account</button>
+      <p class="hint">First time? Your admin has already created your account. Enter your password above, then tap "Set up my account".</p>
+      <button id="registerBtn" type="button">Set up my account</button>
     </form>
   </section>
 
