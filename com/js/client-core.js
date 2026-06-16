@@ -332,6 +332,13 @@ export class Session {
 
   async markRead(cid, lastReadMessageId) { this._use(); return api.markRead(cid, lastReadMessageId); }
 
+  async deleteRoom(cid) {
+    this._use();
+    const r = await api.deleteConversation(cid);
+    this.convKeys.delete(Number(cid));
+    return r;
+  }
+
   openWS(onMessage) {
     this.ws = api.openWS(onMessage, { WebSocketImpl: this.WebSocketImpl, wsBase: this.wsBase });
     return this.ws;

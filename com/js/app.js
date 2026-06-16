@@ -452,11 +452,35 @@ function showList() {
 }
 $('backBtn')?.addEventListener('click', showList);
 
+// ── delete room ──────────────────────────────────────────────────────────────
+$('deleteRoomBtn')?.addEventListener('click', async () => {
+  if (!confirm("Delete this room for everyone? This can't be undone.")) return;
+  const cid = activeCid;
+  if (cid == null) return;
+  try {
+    await session.deleteRoom(cid);
+    session.me = await api.getMe();
+    renderConvList(session.me.conversations || []);
+    activeCid = null;
+    $('deleteRoomBar').hidden = true;
+    $('addPeoplePanel').hidden = true;
+    $('messages').innerHTML = '';
+    showList();
+    // Select first remaining conversation if any.
+    const first = (session.me.conversations || [])[0];
+    if (first) selectConversation(first.id);
+  } catch {
+    appendSystem('Could not delete this room. Try again.');
+  }
+});
+
 // ── conversation rendering ───────────────────────────────────────────────────
 async function selectConversation(cid) {
   activeCid = cid;
   showThread();
   $('messages').innerHTML = '';
+  // Show the delete room button for the active conversation.
+  $('deleteRoomBar').hidden = false;
   // Refresh the per-room "Add people" affordance for the now-active room.
   setNote('addPeopleMsg', '');
   $('addPeoplePanel').open = false;
@@ -617,6 +641,7 @@ function lock() {
   $('adminPanel').hidden = true;
   $('roomPanel').open = false;
   $('addPeoplePanel').hidden = true;
+  $('deleteRoomBar').hidden = true;
   $('roomMembers').innerHTML = '';
   $('addPeopleList').innerHTML = '';
   $('userList').innerHTML = '';

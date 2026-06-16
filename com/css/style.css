@@ -423,6 +423,28 @@ button.ghost:active { background: var(--panel-3); }
   min-height: 34px; padding: 0 14px; font-size: .8rem; margin-left: auto;
 }
 
+/* ─── delete-room affordance (subtle, muted danger) ──────────────────────── */
+.delete-room-bar {
+  flex: 0 0 auto;
+  display: flex; justify-content: flex-end;
+  padding: 6px 14px;
+  padding-right: max(14px, var(--sar));
+  background: var(--bg);
+  border-bottom: 1px solid var(--line-soft);
+}
+.delete-room-btn {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: 999px;
+  min-height: 32px; padding: 0 14px;
+  font-size: .78rem; font-weight: 500; cursor: pointer;
+  opacity: 0.7;
+  transition: opacity .15s var(--ease), background .15s var(--ease), border-color .15s var(--ease);
+}
+.delete-room-btn:hover { opacity: 1; background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.delete-room-btn:active { opacity: 1; filter: brightness(.9); }
+
 /* ─── wide screens: side-by-side, back button irrelevant ──────────────────── */
 @media (min-width: 820px) {
   .chat { flex-direction: row; }

@@ -191,6 +191,14 @@ export function fileUrl(aid) {
   return `${base}/api/files/${aid}`;
 }
 
+export async function deleteConversation(cid) {
+  const res = await fetchImpl(`${base}/api/conversations/${cid}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return jsonOrThrow(res, `DELETE /api/conversations/${cid}`);
+}
+
 // downloadFile(aid) -> { bytes(Uint8Array), nonce(base64 from X-Nonce header) }
 export async function downloadFile(aid) {
   const res = await fetchImpl(fileUrl(aid), { headers: authHeaders() });
