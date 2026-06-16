@@ -10,8 +10,17 @@ import * as api from './api.js';
 // Derive the OPAQUE nickname from a passphrase: the LAST whitespace token.
 // (Mirrors the poc passphrases like "... the blue chair ann" -> "ann".)
 export function nicknameFromPassphrase(passphrase) {
-  const parts = String(passphrase).trim().split(/\s+/);
+  const parts = normalizePassphrase(passphrase).split(/\s+/);
   return parts[parts.length - 1];
+}
+
+// Normalize a passphrase so it is identical across devices/keyboards. Phones
+// auto-capitalize sentences and autocorrect words; without this, the same
+// passphrase typed on a phone vs a laptop yields different bytes and OPAQUE
+// (which needs an exact match) rejects it. Applied IDENTICALLY on register and
+// login: Unicode NFKC, trim, lowercase, collapse internal whitespace.
+export function normalizePassphrase(passphrase) {
+  return String(passphrase).normalize('NFKC').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 export class Session {
@@ -48,10 +57,11 @@ export class Session {
     api.setBase(base);
     if (this.fetchImpl) api.setFetch(this.fetchImpl);
 
-    const nickname = nicknameFromPassphrase(passphrase);
+    const norm = normalizePassphrase(passphrase);
+    const nickname = nicknameFromPassphrase(norm);
 
-    // Step 1: OPAQUE registration ceremony.
-    const { record, exportKey } = await opaque.register(passphrase, nickname, base, this.fetchImpl);
+    // Step 1: OPAQUE registration ceremony (uses the NORMALIZED passphrase).
+    const { record, exportKey } = await opaque.register(norm, nickname, base, this.fetchImpl);
 
     // Step 2+3: generate identity keypair and wrap the private key.
     const id = sodium.newIdentityKeypair();
@@ -77,8 +87,9 @@ export class Session {
     api.setBase(base);
     if (this.fetchImpl) api.setFetch(this.fetchImpl);
 
-    this.nickname = nicknameFromPassphrase(passphrase);
-    const { token, exportKey } = await opaque.login(passphrase, this.nickname, base, this.fetchImpl);
+    const norm = normalizePassphrase(passphrase);
+    this.nickname = nicknameFromPassphrase(norm);
+    const { token, exportKey } = await opaque.login(norm, this.nickname, base, this.fetchImpl);
     this.token = token;
     api.setToken(token);
 
