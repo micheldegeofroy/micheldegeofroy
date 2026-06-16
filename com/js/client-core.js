@@ -330,6 +330,19 @@ export class Session {
     return this.decryptFile(cid, bytes, nonce);
   }
 
+  // editText(cid, mid, newText) — re-encrypt locally, PATCH to server.
+  async editText(cid, mid, newText) {
+    this._use();
+    const { nonce, ciphertext } = sodium.encryptMessage(newText, this.groupKey(cid));
+    return api.editMessage(cid, mid, { nonce, ciphertext });
+  }
+
+  // deleteMessage(cid, mid) — soft-delete on server.
+  async deleteMessage(cid, mid) {
+    this._use();
+    return api.deleteMessage(cid, mid);
+  }
+
   async markRead(cid, lastReadMessageId) { this._use(); return api.markRead(cid, lastReadMessageId); }
 
   async deleteRoom(cid) {

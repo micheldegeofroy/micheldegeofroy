@@ -66,6 +66,25 @@ export async function send(cid, payload) {
   return jsonOrThrow(res, 'POST message');
 }
 
+// editMessage(cid, mid, { nonce, ciphertext }) — re-encrypt + PATCH.
+export async function editMessage(cid, mid, { nonce, ciphertext }) {
+  const res = await fetchImpl(`${base}/api/conversations/${cid}/messages/${mid}`, {
+    method: 'PATCH',
+    headers: authHeaders({ 'content-type': 'application/json' }),
+    body: JSON.stringify({ nonce, ciphertext }),
+  });
+  return jsonOrThrow(res, `PATCH message ${mid}`);
+}
+
+// deleteMessage(cid, mid) — DELETE.
+export async function deleteMessage(cid, mid) {
+  const res = await fetchImpl(`${base}/api/conversations/${cid}/messages/${mid}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return jsonOrThrow(res, `DELETE message ${mid}`);
+}
+
 // ── onboarding / admin orchestration ────────────────────────────────────────
 // All use the in-memory bearer token + injectable base, like the rest of api.js.
 

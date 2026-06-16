@@ -504,18 +504,228 @@ async function refreshAddPeopleForActive() {
   await renderAddPeople(roster);
 }
 
+// ── message action menu ───────────────────────────────────────────────────────
+// Shows a small "..." button on hover (desktop) and triggers on long-press (mobile).
+// Actions: Copy (text), Download (attachment), Edit (own text), Delete (own or admin).
+
+let openMenu = null; // currently visible menu element
+
+function closeOpenMenu() {
+  if (openMenu) { openMenu.remove(); openMenu = null; }
+}
+document.addEventListener('click', closeOpenMenu);
+
+function showToast(text) {
+  let t = document.querySelector('.msg-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.className = 'msg-toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = text;
+  t.classList.add('msg-toast--show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('msg-toast--show'), 1800);
+}
+
+function buildMsgMenu(m, wrap, mine) {
+  const isAdmin = !!session.me?.is_admin;
+  const kind = m.kind || 'text';
+
+  const btn = document.createElement('button');
+  btn.className = 'msg-menu-btn';
+  btn.setAttribute('aria-label', 'Message actions');
+  btn.textContent = '⋯'; // horizontal ellipsis
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeOpenMenu();
+
+    const menu = document.createElement('div');
+    menu.className = 'msg-actions';
+    openMenu = menu;
+
+    // Copy — text messages.
+    if (kind === 'text') {
+      const copyItem = menuItem('Copy', async () => {
+        const text = wrap.querySelector('.msg-text')?.textContent || '';
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast('Copied');
+        } catch {
+          showToast('Copy failed');
+        }
+      });
+      menu.appendChild(copyItem);
+    }
+
+    // Download — attachment messages.
+    if (m.attachment_id) {
+      const attHolder = wrap.querySelector('.attachment');
+      const dlItem = menuItem('Download', async () => {
+        try {
+          const cid = Number(attHolder?.dataset?.cid || activeCid);
+          const aid = m.attachment_id;
+          const filename = attHolder?.dataset?.filename || 'attachment';
+          const bytes = await session.downloadFile(cid, aid);
+          const blob = new Blob([bytes]);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+        } catch {
+          showToast('Download failed');
+        }
+      });
+      menu.appendChild(dlItem);
+    }
+
+    // Edit — only own text messages that have an id (not unsent optimistic).
+    if (mine && kind === 'text' && m.id) {
+      const editItem = menuItem('Edit', () => {
+        const textEl = wrap.querySelector('.msg-text');
+        const current = textEl?.textContent || '';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'msg-edit-input';
+        input.value = current;
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'msg-edit-save';
+        saveBtn.textContent = 'Save';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'msg-edit-cancel';
+        cancelBtn.textContent = 'Cancel';
+
+        const editRow = document.createElement('div');
+        editRow.className = 'msg-edit-row';
+        editRow.appendChild(input);
+        editRow.appendChild(saveBtn);
+        editRow.appendChild(cancelBtn);
+
+        // Replace text with edit row.
+        textEl.replaceWith(editRow);
+        input.focus();
+        input.select();
+
+        const cancelEdit = () => {
+          editRow.replaceWith(textEl);
+        };
+
+        cancelBtn.addEventListener('click', cancelEdit);
+        saveBtn.addEventListener('click', async () => {
+          const newText = input.value.trim();
+          if (!newText || newText === current) { cancelEdit(); return; }
+          try {
+            const { edited_at } = await session.editText(activeCid, m.id, newText);
+            // Restore text node with updated content.
+            textEl.textContent = newText;
+            editRow.replaceWith(textEl);
+            m.text = newText;
+            // Update/add edited marker.
+            let edMark = wrap.querySelector('.msg-edited');
+            if (!edMark) {
+              edMark = document.createElement('span');
+              edMark.className = 'msg-edited';
+              edMark.textContent = ' edited';
+              wrap.insertBefore(edMark, btn);
+            }
+          } catch {
+            showToast('Edit failed');
+            cancelEdit();
+          }
+        });
+        input.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') saveBtn.click();
+          if (ev.key === 'Escape') cancelEdit();
+        });
+      });
+      menu.appendChild(editItem);
+    }
+
+    // Delete — own messages or admin for any.
+    if (mine || isAdmin) {
+      const delItem = menuItem('Delete', async () => {
+        if (!confirm('Delete this message?')) return;
+        try {
+          await session.deleteMessage(activeCid, m.id);
+          wrap.remove();
+        } catch {
+          showToast('Delete failed');
+        }
+      });
+      delItem.classList.add('msg-action--danger');
+      menu.appendChild(delItem);
+    }
+
+    if (!menu.children.length) return; // nothing to show
+
+    // Position the menu near the button.
+    const rect = btn.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = `${rect.bottom + 4}px`;
+    menu.style.left = `${Math.min(rect.left, window.innerWidth - 160)}px`;
+    document.body.appendChild(menu);
+  });
+
+  // Long-press on mobile.
+  let pressTimer = null;
+  wrap.addEventListener('touchstart', (e) => {
+    pressTimer = setTimeout(() => { btn.click(); }, 450);
+  }, { passive: true });
+  wrap.addEventListener('touchend', () => clearTimeout(pressTimer));
+  wrap.addEventListener('touchmove', () => clearTimeout(pressTimer));
+
+  return btn;
+}
+
+function menuItem(label, onClick) {
+  const el = document.createElement('button');
+  el.className = 'msg-action';
+  el.textContent = label;
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeOpenMenu();
+    onClick();
+  });
+  return el;
+}
+
 async function renderMessage(m) {
   const wrap = document.createElement('div');
   const mine = session.me && m.sender_id === session.me.id;
   wrap.className = 'msg' + (mine ? ' mine' : '');
+  if (m.id) wrap.dataset.mid = String(m.id);
+  wrap.dataset.senderId = String(m.sender_id);
+  wrap.dataset.kind = m.kind || 'text';
 
   if (m.kind === 'text') {
-    wrap.textContent = m.text != null ? m.text : safeDecrypt(m);
+    const textNode = document.createElement('span');
+    textNode.className = 'msg-text';
+    textNode.textContent = m.text != null ? m.text : safeDecrypt(m);
+    wrap.appendChild(textNode);
+    if (m.edited_at) {
+      const ed = document.createElement('span');
+      ed.className = 'msg-edited';
+      ed.textContent = ' edited';
+      wrap.appendChild(ed);
+    }
   } else if (m.attachment_id) {
     wrap.appendChild(await renderAttachment(m));
   } else {
-    wrap.textContent = '[unsupported message]';
+    const span = document.createElement('span');
+    span.className = 'msg-text';
+    span.textContent = '[unsupported message]';
+    wrap.appendChild(span);
   }
+
+  // Action affordance.
+  wrap.appendChild(buildMsgMenu(m, wrap, mine));
   $('messages').appendChild(wrap);
 }
 
@@ -524,26 +734,49 @@ function safeDecrypt(m) {
   catch { return '[unable to decrypt]'; }
 }
 
+// Decrypt the filename stored as the message body (set during file send).
+// Falls back gracefully for old messages that have a blank body.
+function decryptFilename(m) {
+  try {
+    const cid = m.conversation_id ?? activeCid;
+    const name = session.decryptIncoming(m, cid);
+    if (name && name.trim() && name.trim() !== ' ') return name.trim();
+  } catch { /* ignore */ }
+  // Fallback: derive a name from content_type if available.
+  if (m.content_type) {
+    const ext = m.content_type.split('/')[1] || 'bin';
+    return `attachment.${ext}`;
+  }
+  return 'attachment';
+}
+
 async function renderAttachment(m) {
   const holder = document.createElement('div');
   holder.className = 'attachment';
   holder.textContent = 'Loading attachment…';
+  // Store filename on element for the Download action.
+  const filename = decryptFilename(m);
+  holder.dataset.filename = filename;
   try {
-    const bytes = await session.downloadFile(m.conversation_id ?? activeCid, m.attachment_id);
+    const cid = m.conversation_id ?? activeCid;
+    const bytes = await session.downloadFile(cid, m.attachment_id);
     const blob = new Blob([bytes]);
     const url = URL.createObjectURL(blob);
     objectUrls.push(url);
     holder.innerHTML = '';
+    holder.dataset.filename = filename; // re-set after innerHTML wipe
+    holder.dataset.attachmentId = String(m.attachment_id);
+    holder.dataset.cid = String(cid);
     if (m.kind === 'image') {
       const img = document.createElement('img');
       img.src = url;
-      img.alt = 'attachment';
+      img.alt = filename;
       holder.appendChild(img);
     } else {
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'attachment';
-      a.textContent = 'Download attachment';
+      a.download = filename;
+      a.textContent = `Download ${filename}`;
       holder.appendChild(a);
     }
   } catch {
@@ -559,9 +792,9 @@ $('composer').addEventListener('submit', async (e) => {
   if (!text || activeCid == null) return;
   $('msgInput').value = '';
   try {
-    await session.sendText(activeCid, text);
+    const { id } = await session.sendText(activeCid, text);
     // Optimistic render (server does not echo our own sends back to us over WS).
-    await renderMessage({ kind: 'text', text, sender_id: session.me.id });
+    await renderMessage({ id, kind: 'text', text, sender_id: session.me.id });
     scrollToBottom();
   } catch {
     appendSystem('Message failed to send.');
@@ -576,11 +809,11 @@ $('fileInput').addEventListener('change', async (e) => {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const { attachment_id } = await session.uploadFile(activeCid, bytes, file.type || 'application/octet-stream');
     const kind = (file.type || '').startsWith('image/') ? 'image' : 'video';
-    // The attachment is referenced by a message carrying an encrypted caption marker.
-    const { nonce, ciphertext } = sodiumHelpers.encryptMessage(' ', session.groupKey(activeCid));
+    // Encrypt the original filename as the message body so receivers can name the download.
+    const { nonce, ciphertext } = sodiumHelpers.encryptMessage(file.name || ' ', session.groupKey(activeCid));
     const clientMsgId = (crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`);
     await api.send(activeCid, { client_msg_id: clientMsgId, kind, nonce, ciphertext, attachment_id });
-    await renderMessage({ kind, attachment_id, conversation_id: activeCid, sender_id: session.me.id });
+    await renderMessage({ kind, attachment_id, conversation_id: activeCid, sender_id: session.me.id, nonce, ciphertext });
     scrollToBottom();
   } catch {
     appendSystem('Attachment failed to send.');
@@ -593,20 +826,42 @@ $('fileInput').addEventListener('change', async (e) => {
 function connectWS() {
   if (!session) return;
   ws = session.openWS(async (frame) => {
-    if (frame.type !== 'message') return;
-    if (frame.conversation_id === activeCid) {
-      await renderMessage({
-        id: frame.id, kind: frame.kind, sender_id: frame.sender_id,
-        nonce: frame.nonce, ciphertext: frame.ciphertext,
-        attachment_id: frame.attachment_id, conversation_id: frame.conversation_id,
-        text: frame.kind === 'text' ? safeDecrypt(frame) : undefined,
-      });
-      scrollToBottom();
-      if (frame.id) session.markRead(activeCid, frame.id).catch(() => {});
-    } else {
-      // Refresh the conversation list to bump the unread badge.
-      session.me = await api.getMe();
-      renderConvList(session.me.conversations || []);
+    if (frame.type === 'message') {
+      if (frame.conversation_id === activeCid) {
+        await renderMessage({
+          id: frame.id, kind: frame.kind, sender_id: frame.sender_id,
+          nonce: frame.nonce, ciphertext: frame.ciphertext,
+          attachment_id: frame.attachment_id, conversation_id: frame.conversation_id,
+          text: frame.kind === 'text' ? safeDecrypt(frame) : undefined,
+        });
+        scrollToBottom();
+        if (frame.id) session.markRead(activeCid, frame.id).catch(() => {});
+      } else {
+        // Refresh the conversation list to bump the unread badge.
+        session.me = await api.getMe();
+        renderConvList(session.me.conversations || []);
+      }
+    } else if (frame.type === 'message_edited' && frame.conversation_id === activeCid) {
+      const bubble = document.querySelector(`.msg[data-mid="${frame.id}"]`);
+      if (bubble) {
+        const textEl = bubble.querySelector('.msg-text');
+        if (textEl) {
+          try {
+            const newText = sodiumHelpers.decryptMessage(frame.nonce, frame.ciphertext, session.groupKey(activeCid));
+            textEl.textContent = newText;
+          } catch { /* skip if key unavailable */ }
+        }
+        let edMark = bubble.querySelector('.msg-edited');
+        if (!edMark) {
+          edMark = document.createElement('span');
+          edMark.className = 'msg-edited';
+          edMark.textContent = ' edited';
+          const menuBtn = bubble.querySelector('.msg-menu-btn');
+          bubble.insertBefore(edMark, menuBtn || null);
+        }
+      }
+    } else if (frame.type === 'message_deleted' && frame.conversation_id === activeCid) {
+      document.querySelector(`.msg[data-mid="${frame.id}"]`)?.remove();
     }
   });
   wsBackoff = 1000;

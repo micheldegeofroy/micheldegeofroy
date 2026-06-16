@@ -468,6 +468,99 @@ button.ghost:active { background: var(--panel-3); }
   .iconbtn:not([hidden]) { display: inline-flex; }
 }
 
+/* ─── message action menu ─────────────────────────────────────────────────── */
+/* "..." trigger button — sits inside the bubble, shown on hover or after long-press */
+.msg { position: relative; }
+.msg-menu-btn {
+  display: none;           /* hidden by default; shown on .msg:hover */
+  position: absolute;
+  top: 4px; right: 6px;
+  width: 28px; height: 28px;
+  border: 0; border-radius: 50%;
+  background: var(--panel-3); color: var(--muted);
+  font-size: .9rem; line-height: 1;
+  cursor: pointer;
+  transition: background .12s var(--ease), color .12s var(--ease);
+  align-items: center; justify-content: center;
+  padding: 0;
+  z-index: 1;
+}
+.msg:hover .msg-menu-btn { display: inline-flex; }
+.msg-menu-btn:hover { background: var(--panel-2); color: var(--text); }
+
+/* Dropdown menu — portalled to body via JS so z-index works over everything */
+.msg-actions {
+  position: fixed;
+  z-index: 9999;
+  min-width: 148px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  overflow: hidden;
+  animation: pop .14s var(--ease) both;
+}
+.msg-action {
+  display: block; width: 100%;
+  padding: 11px 16px;
+  min-height: var(--tap);
+  background: transparent; color: var(--text);
+  border: 0; text-align: left; font-size: .92rem;
+  cursor: pointer;
+  transition: background .1s var(--ease);
+}
+.msg-action:hover { background: var(--panel-3); }
+.msg-action--danger { color: var(--danger); }
+.msg-action--danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+
+/* Inline edit row inside the bubble */
+.msg-edit-row {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.msg-edit-input {
+  flex: 1; min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--panel-3); color: var(--text); font-size: .95rem;
+}
+.msg-edit-input:focus { outline: none; }
+.msg-edit-save, .msg-edit-cancel {
+  min-height: 34px; padding: 0 12px;
+  border: 0; border-radius: var(--radius-sm);
+  font-size: .82rem; font-weight: 600; cursor: pointer;
+  transition: filter .12s var(--ease);
+}
+.msg-edit-save { background: var(--accent); color: #fff; }
+.msg-edit-save:hover { filter: brightness(1.1); }
+.msg-edit-cancel { background: var(--panel-3); color: var(--muted); border: 1px solid var(--line); }
+.msg-edit-cancel:hover { color: var(--text); }
+
+/* "edited" label appended to edited messages */
+.msg-edited {
+  font-size: .7rem; color: var(--faint);
+  margin-left: 5px; font-style: italic;
+}
+
+/* Toast — brief "Copied" etc. confirmation */
+.msg-toast {
+  position: fixed;
+  bottom: calc(80px + var(--sab));
+  left: 50%; transform: translateX(-50%) translateY(12px);
+  background: var(--panel-3); color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 20px; font-size: .88rem;
+  opacity: 0; pointer-events: none;
+  transition: opacity .18s var(--ease), transform .18s var(--ease);
+  z-index: 9999;
+  white-space: nowrap;
+}
+.msg-toast--show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* ─── motion primitives (cheap: transform + opacity only) ─────────────────── */
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes pop  { from { opacity: 0; transform: translateY(4px) scale(.985); } to { opacity: 1; transform: none; } }
