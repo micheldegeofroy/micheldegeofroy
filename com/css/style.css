@@ -383,6 +383,11 @@ button.ghost:active { background: var(--panel-3); }
 .tag.reg   { background: #1f6b4133; color: #8fe0b1; border: 1px solid #1f6b4155; }
 .tag.unreg { background: #6b4a1f33; color: #e7c79a; border: 1px solid #6b4a1f55; }
 .tag.adm   { background: #3d7dff2e; color: var(--accent-2); border: 1px solid #3d7dff55; }
+.tag.mkadm { background: var(--panel-3); color: var(--muted); border: 1px solid var(--line); }
+/* clickable admin chips — click the badge to toggle admin */
+.tag.clickable { cursor: pointer; padding: 4px 11px; transition: filter .12s var(--ease), background .12s var(--ease); }
+.tag.clickable:hover { filter: brightness(1.15); }
+.tag.mkadm.clickable:hover { background: var(--panel-2); color: var(--text); }
 .checks { display: flex; flex-direction: column; gap: 8px; }
 .checks label {
   display: flex; align-items: center; gap: 10px; min-height: 40px;

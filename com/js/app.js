@@ -182,24 +182,23 @@ async function refreshOnboardingPanels() {
     small.style.fontSize = '.75rem';
     small.textContent = `@${u.nickname}`;
     li.appendChild(small);
-    if (u.is_admin) li.appendChild(tag('admin', 'adm'));
-    li.appendChild(u.registered ? tag('registered', 'reg') : tag('pending', 'unreg'));
-    // Promote/demote button — not shown for the current admin themselves.
-    if (u.id !== session.me.id) {
-      const admBtn = document.createElement('button');
-      admBtn.type = 'button';
-      admBtn.className = 'adm-toggle';
-      admBtn.textContent = u.is_admin ? 'Remove admin' : 'Make admin';
-      admBtn.addEventListener('click', async () => {
-        try {
-          await session.setUserAdmin(u.id, !u.is_admin);
-          await refreshOnboardingPanels();
-        } catch {
-          setNote('adminMsg', 'Could not change admin.', 'err');
-        }
-      });
-      li.appendChild(admBtn);
+    // Admin toggle via clickable chip. You can't change your OWN admin status.
+    const isSelf = u.id === session.me.id;
+    if (u.is_admin) {
+      const adm = tag('admin', 'adm');
+      if (!isSelf) {
+        adm.classList.add('clickable');
+        adm.title = 'Click to remove admin';
+        adm.addEventListener('click', () => toggleAdmin(u.id, false));
+      }
+      li.appendChild(adm);
+    } else if (!isSelf) {
+      const mk = tag('make admin', 'mkadm clickable');
+      mk.title = 'Click to make admin';
+      mk.addEventListener('click', () => toggleAdmin(u.id, true));
+      li.appendChild(mk);
     }
+    li.appendChild(u.registered ? tag('registered', 'reg') : tag('pending', 'unreg'));
     ul.appendChild(li);
   }
 
@@ -209,6 +208,15 @@ async function refreshOnboardingPanels() {
   fillSelect($('addMemberUser'), others.map((u) => ({ value: u.id, text: u.display_name || u.nickname })));
 
   renderPendingList(users);
+}
+
+async function toggleAdmin(id, makeAdmin) {
+  try {
+    await session.setUserAdmin(id, makeAdmin);
+    await refreshOnboardingPanels();
+  } catch {
+    setNote('adminMsg', 'Could not change admin.', 'err');
+  }
 }
 
 function tag(text, cls) {
