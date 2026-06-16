@@ -83,6 +83,15 @@ export async function adminCreateUser(nickname, display_name) {
   return jsonOrThrow(res, 'POST /api/admin/users');
 }
 
+export async function adminSetAdmin(userId, isAdmin) {
+  const res = await fetchImpl(`${base}/api/admin/users/${userId}/admin`, {
+    method: 'POST',
+    headers: authHeaders({ 'content-type': 'application/json' }),
+    body: JSON.stringify({ is_admin: isAdmin }),
+  });
+  return jsonOrThrow(res, `POST /api/admin/users/${userId}/admin`);
+}
+
 export async function adminCreateConversation(title, memberIds) {
   const res = await fetchImpl(`${base}/api/admin/conversations`, {
     method: 'POST',

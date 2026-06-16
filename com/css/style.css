@@ -390,6 +390,18 @@ button.ghost:active { background: var(--panel-3); }
 }
 .checks input { accent-color: var(--accent); width: 18px; height: 18px; }
 .pending-list button { min-height: 36px; padding: 0 14px; font-size: .8rem; margin-left: auto; }
+/* admin-promote/demote toggle — quiet but comfortable tap target */
+.adm-toggle {
+  min-height: 36px; padding: 0 12px;
+  margin-left: auto;
+  font-size: .78rem; font-weight: 500;
+  background: var(--panel-3); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px;
+  cursor: pointer; white-space: nowrap;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.adm-toggle:hover { background: var(--panel-2); color: var(--text); }
+.adm-toggle:active { filter: brightness(.9); }
 
 /* ─── wide screens: side-by-side, back button irrelevant ──────────────────── */
 @media (min-width: 820px) {

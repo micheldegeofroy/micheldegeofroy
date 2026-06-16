@@ -191,6 +191,14 @@ export class Session {
     return api.adminListUsers();
   }
 
+  // setUserAdmin(userId, isAdmin) — promote or demote another user's admin status.
+  // The server blocks self-change and non-admins.
+  async setUserAdmin(userId, isAdmin) {
+    if (!this.me?.is_admin) throw new Error('admin only');
+    this._use();
+    return api.adminSetAdmin(userId, isAdmin);
+  }
+
   // createGroup(title, memberIds) — admin flow. Creates the conversation, mints a
   // fresh GROUP_KEY, seals it to every registered member, grants over HTTP, and
   // holds the key locally. Unregistered members are returned as `pending`.

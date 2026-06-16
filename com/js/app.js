@@ -174,6 +174,22 @@ async function refreshOnboardingPanels() {
     li.appendChild(small);
     if (u.is_admin) li.appendChild(tag('admin', 'adm'));
     li.appendChild(u.registered ? tag('registered', 'reg') : tag('pending', 'unreg'));
+    // Promote/demote button — not shown for the current admin themselves.
+    if (u.id !== session.me.id) {
+      const admBtn = document.createElement('button');
+      admBtn.type = 'button';
+      admBtn.className = 'adm-toggle';
+      admBtn.textContent = u.is_admin ? 'Remove admin' : 'Make admin';
+      admBtn.addEventListener('click', async () => {
+        try {
+          await session.setUserAdmin(u.id, !u.is_admin);
+          await refreshOnboardingPanels();
+        } catch {
+          setNote('adminMsg', 'Could not change admin.', 'err');
+        }
+      });
+      li.appendChild(admBtn);
+    }
     ul.appendChild(li);
   }
 
