@@ -130,36 +130,46 @@ async function refreshOnboardingPanels() {
   if (!session?.me) return;
   const isAdmin = !!session.me.is_admin;
   $('adminPanel').hidden = !isAdmin;
-
-  // Everyone gets a "new DM" picker. Admins see the full user list (with pubkeys);
-  // non-admins can only DM people they already share a conversation with is not
-  // possible to enumerate, so we fall back to nickname entry. For the family use
-  // case the picker is admin-fed; non-admins simply pick from people they know.
-  let users = [];
-  if (isAdmin) {
-    try { users = await session.adminListUsers(); } catch { users = []; }
-  }
   const me = session.me;
-  const others = users.filter((u) => u.id !== me.id);
 
-  // DM picker — list everyone except me (admins) or hide if we can't enumerate.
+  // EVERY user gets the roster (GET /api/users — minimal public fields) so they
+  // can pick people for a new DM, a new room, or to add to the active room.
+  let roster = [];
+  try { roster = await session.listUsers(); } catch { roster = []; }
+  const others = roster.filter((u) => u.id !== me.id);
+
+  // DM picker — list everyone except me. Available to ALL users now.
   const dmPicker = $('dmPicker');
-  if (isAdmin) {
-    $('dmPanel').hidden = false;
-    dmPicker.innerHTML = '';
-    for (const u of others) {
-      const o = document.createElement('option');
-      o.value = String(u.id);
-      o.textContent = `${u.display_name || u.nickname}`;
-      dmPicker.appendChild(o);
-    }
-  } else {
-    // Non-admins keep the DM picker visible but it stays empty unless we have a
-    // roster; in the family model the admin sets up conversations, so this is fine.
-    $('dmPanel').hidden = others.length === 0;
+  $('dmPanel').hidden = others.length === 0;
+  dmPicker.innerHTML = '';
+  for (const u of others) {
+    const o = document.createElement('option');
+    o.value = String(u.id);
+    o.textContent = `${u.display_name || u.nickname}`;
+    dmPicker.appendChild(o);
   }
+
+  // New-room member checklist — registered, non-me users. Available to ALL users.
+  const rm = $('roomMembers');
+  rm.innerHTML = '';
+  for (const u of others.filter((x) => x.registered)) {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = String(u.id);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(u.display_name || u.nickname));
+    rm.appendChild(label);
+  }
+
+  // Refresh the per-room "Add people" affordance for the active room.
+  renderAddPeople(roster);
 
   if (!isAdmin) return;
+
+  // From here down: ADMIN-ONLY panel. Use the admin roster (with is_admin flags).
+  let users = [];
+  try { users = await session.adminListUsers(); } catch { users = []; }
 
   // Admin: user list with registered status.
   const ul = $('userList');
@@ -191,19 +201,6 @@ async function refreshOnboardingPanels() {
       li.appendChild(admBtn);
     }
     ul.appendChild(li);
-  }
-
-  // Group-creation member checkboxes (only registered, non-me users).
-  const gm = $('groupMembers');
-  gm.innerHTML = '';
-  for (const u of others.filter((x) => x.registered)) {
-    const label = document.createElement('label');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.value = String(u.id);
-    label.appendChild(cb);
-    label.appendChild(document.createTextNode(u.display_name || u.nickname));
-    gm.appendChild(label);
   }
 
   // Add-member selects: groups I'm in + all other users.
@@ -266,6 +263,76 @@ async function grantOnePending(cid, uid) {
   }
 }
 
+// ── per-room "Add people" affordance (ANY member of the active room) ─────────
+// Shows the panel only when the active conversation is a GROUP room I belong to,
+// and lists registered users who are NOT already members. `roster` is the public
+// GET /api/users list. We compute existing members from session.me.conversations
+// + the active room's member list (fetched lazily).
+let addPeopleMembers = new Set(); // member ids of the active room (lazy)
+
+async function renderAddPeople(roster) {
+  const panel = $('addPeoplePanel');
+  if (!panel) return;
+  const conv = (session.me?.conversations || []).find((c) => c.id === activeCid);
+  // Only for group rooms (DMs are 1:1 and not extendable here).
+  if (!conv || conv.kind !== 'group') {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+
+  // Fetch the current members of the active room (members-only endpoint; we are
+  // a member). Fall back to an empty set if it fails.
+  try {
+    const members = await session.getMembers(activeCid);
+    addPeopleMembers = new Set(members.map((m) => Number(m.id)));
+  } catch {
+    addPeopleMembers = new Set();
+  }
+
+  const me = session.me;
+  const candidates = roster.filter(
+    (u) => u.id !== me.id && u.registered && !addPeopleMembers.has(Number(u.id)),
+  );
+
+  const list = $('addPeopleList');
+  list.innerHTML = '';
+  if (!candidates.length) {
+    const note = document.createElement('p');
+    note.className = 'panel-note';
+    note.textContent = 'Everyone is already in this room.';
+    list.appendChild(note);
+    return;
+  }
+  for (const u of candidates) {
+    const row = document.createElement('label');
+    row.appendChild(document.createTextNode(u.display_name || u.nickname));
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Add';
+    btn.addEventListener('click', () => addPersonToRoom(activeCid, u.id));
+    row.appendChild(btn);
+    list.appendChild(row);
+  }
+}
+
+async function addPersonToRoom(cid, uid) {
+  try {
+    const res = await session.addToRoom(cid, uid);
+    if (res.pending.length) {
+      const set = pendingByGroup.get(cid) || new Set();
+      for (const p of res.pending) set.add(p);
+      pendingByGroup.set(cid, set);
+      setNote('addPeopleMsg', 'Added — they will get access once they finish setup.', 'err');
+    } else {
+      setNote('addPeopleMsg', 'Added and given access.', 'ok');
+    }
+    await refreshOnboardingPanels();
+  } catch {
+    setNote('addPeopleMsg', 'Could not add this person.', 'err');
+  }
+}
+
 function wireOnboardingForms() {
   $('dmStartBtn')?.addEventListener('click', async () => {
     const sel = $('dmPicker');
@@ -297,25 +364,28 @@ function wireOnboardingForms() {
     }
   });
 
-  $('createGroupForm')?.addEventListener('submit', async (e) => {
+  // Universal "New room" form — available to EVERY user.
+  $('createRoomForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const title = $('groupTitle').value.trim();
-    const ids = Array.from($('groupMembers').querySelectorAll('input:checked')).map((c) => Number(c.value));
+    const title = $('roomTitle').value.trim();
+    const ids = Array.from($('roomMembers').querySelectorAll('input:checked')).map((c) => Number(c.value));
     if (!title) return;
     try {
-      const { conversationId, granted, pending } = await session.createGroup(title, ids);
-      $('groupTitle').value = '';
+      const { conversationId, granted, pending } = await session.createRoom(title, ids);
+      $('roomTitle').value = '';
       if (pending.length) {
         pendingByGroup.set(conversationId, new Set(pending));
-        setNote('pendingNote', `${pending.length} member(s) not registered yet — grant them once they register.`, 'err');
+        setNote('roomMsg', `Room created. ${pending.length} invitee(s) still need to finish setup.`, 'err');
       } else {
-        setNote('pendingNote', `Group created. Keyed ${granted} member(s).`, 'ok');
+        setNote('roomMsg', `Room created. Gave access to ${granted} member(s).`, 'ok');
       }
       session.me = await api.getMe();
       renderConvList(session.me.conversations || []);
+      $('roomPanel').open = false;
+      selectConversation(conversationId);
       await refreshOnboardingPanels();
     } catch {
-      setNote('pendingNote', 'Could not create group.', 'err');
+      setNote('roomMsg', 'Could not create room.', 'err');
     }
   });
 
@@ -379,6 +449,10 @@ async function selectConversation(cid) {
   activeCid = cid;
   showThread();
   $('messages').innerHTML = '';
+  // Refresh the per-room "Add people" affordance for the now-active room.
+  setNote('addPeopleMsg', '');
+  $('addPeoplePanel').open = false;
+  refreshAddPeopleForActive().catch(() => {});
   try {
     const rows = await session.loadConversation(cid);
     for (const m of rows) await renderMessage(m);
@@ -388,6 +462,14 @@ async function selectConversation(cid) {
   } catch (err) {
     appendSystem('Could not load this conversation.');
   }
+}
+
+// Re-fetch the roster and re-render the "Add people" panel for the active room.
+async function refreshAddPeopleForActive() {
+  if (!session?.me) return;
+  let roster = [];
+  try { roster = await session.listUsers(); } catch { roster = []; }
+  await renderAddPeople(roster);
 }
 
 async function renderMessage(m) {
@@ -523,10 +605,16 @@ function lock() {
   $('messages').innerHTML = '';
   $('convList').innerHTML = '';
   pendingByGroup.clear();
+  addPeopleMembers = new Set();
   $('adminPanel').hidden = true;
+  $('roomPanel').open = false;
+  $('addPeoplePanel').hidden = true;
+  $('roomMembers').innerHTML = '';
+  $('addPeopleList').innerHTML = '';
   $('userList').innerHTML = '';
   $('pendingList').innerHTML = '';
-  setNote('adminMsg', ''); setNote('pendingNote', ''); setNote('dmMsg', '');
+  setNote('adminMsg', ''); setNote('dmMsg', '');
+  setNote('roomMsg', ''); setNote('addPeopleMsg', '');
 }
 
 // Clear in-memory secrets when the tab is closed/hidden.

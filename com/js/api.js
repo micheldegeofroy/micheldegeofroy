@@ -110,6 +110,34 @@ export async function adminAddMember(cid, userId) {
   return jsonOrThrow(res, 'POST add member');
 }
 
+// ── universal (any user) room management ─────────────────────────────────────
+
+// List ALL users (roster for picking invitees). Minimal fields per shapeMember.
+export async function listUsers() {
+  const res = await fetchImpl(`${base}/api/users`, { headers: authHeaders() });
+  return jsonOrThrow(res, 'GET /api/users');
+}
+
+// Create a group room as ANY user (the creator becomes a member).
+export async function createConversation(title, memberIds) {
+  const res = await fetchImpl(`${base}/api/conversations`, {
+    method: 'POST',
+    headers: authHeaders({ 'content-type': 'application/json' }),
+    body: JSON.stringify({ title, member_ids: memberIds }),
+  });
+  return jsonOrThrow(res, 'POST /api/conversations');
+}
+
+// Invite a member to a room (caller must be a member of cid).
+export async function addRoomMember(cid, userId) {
+  const res = await fetchImpl(`${base}/api/conversations/${cid}/members`, {
+    method: 'POST',
+    headers: authHeaders({ 'content-type': 'application/json' }),
+    body: JSON.stringify({ user_id: userId }),
+  });
+  return jsonOrThrow(res, 'POST room member');
+}
+
 export async function getMembers(cid) {
   const res = await fetchImpl(`${base}/api/conversations/${cid}/members`, { headers: authHeaders() });
   return jsonOrThrow(res, 'GET members');

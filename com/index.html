@@ -94,6 +94,19 @@
         </div>
       </details>
 
+      <!-- NEW ROOM panel (ALL users). Name a room + pick members -> create it. -->
+      <details id="roomPanel" class="panel">
+        <summary>New room</summary>
+        <div class="panel-body">
+          <form id="createRoomForm" class="stack" autocomplete="off">
+            <input id="roomTitle" type="text" placeholder="room name (e.g. Weekend Trip)" required />
+            <div id="roomMembers" class="checks" aria-label="People to invite"></div>
+            <button type="submit">Create room</button>
+          </form>
+          <p id="roomMsg" class="panel-note" role="status"></p>
+        </div>
+      </details>
+
       <!-- ADMIN PANEL (only shown when is_admin). -->
       <details id="adminPanel" class="panel admin" hidden>
         <summary>Admin</summary>
@@ -107,14 +120,6 @@
             <input id="newDisplay" type="text" placeholder="display name (e.g. Ann)" required />
             <button type="submit">Create user</button>
           </form>
-
-          <h3>Create the family group</h3>
-          <form id="createGroupForm" class="stack" autocomplete="off">
-            <input id="groupTitle" type="text" placeholder="group name (e.g. Family)" required />
-            <div id="groupMembers" class="checks" aria-label="Registered members"></div>
-            <button type="submit">Create group</button>
-          </form>
-          <p id="pendingNote" class="panel-note" role="status"></p>
 
           <h3>Add a member to a group</h3>
           <form id="addMemberForm" class="stack" autocomplete="off">
@@ -132,6 +137,14 @@
       </details>
     </aside>
     <main class="thread">
+      <!-- Per-room "Add people" affordance — shown to ANY member of the active room. -->
+      <details id="addPeoplePanel" class="panel room-add" hidden>
+        <summary>Add people</summary>
+        <div class="panel-body">
+          <div id="addPeopleList" class="checks" aria-label="People to add"></div>
+          <p id="addPeopleMsg" class="panel-note" role="status"></p>
+        </div>
+      </details>
       <div id="messages" class="messages" aria-live="polite"></div>
       <form id="composer" class="composer">
         <label class="attach">

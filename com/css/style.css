@@ -403,6 +403,21 @@ button.ghost:active { background: var(--panel-3); }
 .adm-toggle:hover { background: var(--panel-2); color: var(--text); }
 .adm-toggle:active { filter: brightness(.9); }
 
+/* ─── per-room "Add people" panel (sits at the top of the thread) ──────────── */
+.room-add {
+  flex: 0 0 auto;
+  border-top: 0; border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.room-add > summary { color: var(--accent-2); }
+#addPeopleList label {
+  display: flex; align-items: center; gap: 10px; min-height: 40px;
+  font-size: .9rem; color: var(--text);
+}
+#addPeopleList button {
+  min-height: 34px; padding: 0 14px; font-size: .8rem; margin-left: auto;
+}
+
 /* ─── wide screens: side-by-side, back button irrelevant ──────────────────── */
 @media (min-width: 820px) {
   .chat { flex-direction: row; }

@@ -214,6 +214,53 @@ export class Session {
     return { conversationId: conversation_id, granted, pending };
   }
 
+  // listUsers() — roster of ALL users (id, nickname, display_name, public_key,
+  // registered) so ANY user can pick invitees. No private fields.
+  async listUsers() {
+    this._use();
+    return api.listUsers();
+  }
+
+  // getMembers(cid) — members + pubkeys of a conversation I belong to.
+  async getMembers(cid) {
+    this._use();
+    return api.getMembers(cid);
+  }
+
+  // createRoom(title, memberIds) — UNIVERSAL flow (any user). Mirrors createGroup
+  // but via the non-admin POST /api/conversations endpoint: create the room (the
+  // creator is auto-added), mint a fresh GROUP_KEY, seal it to every registered
+  // member, grant over HTTP, and hold the key locally. Unregistered members come
+  // back as `pending` (grant them once they register, via grantPending).
+  async createRoom(title, memberIds) {
+    await sodium.ready();
+    this._use();
+    const { conversation_id, members } = await api.createConversation(title, memberIds);
+    const GROUP_KEY = sodium.newGroupKey();
+    const { grants, pending } = this._sealForMembers(members, GROUP_KEY);
+    let granted = 0;
+    if (grants.length) ({ granted } = await api.grantKeys(conversation_id, grants));
+    this._holdKey(conversation_id, GROUP_KEY);
+    return { conversationId: conversation_id, granted, pending };
+  }
+
+  // addToRoom(cid, userId) — UNIVERSAL flow (any MEMBER). Invites the user via the
+  // non-admin POST /api/conversations/:cid/members endpoint, then seals the HELD
+  // room key to their pubkey and grants it. Unregistered invitees (no pubkey) come
+  // back as pending — grant them via grantPending once they register.
+  async addToRoom(cid, userId) {
+    await sodium.ready();
+    this._use();
+    const key = this.groupKey(cid); // throws if we don't hold the key
+    const { member } = await api.addRoomMember(cid, userId);
+    if (!member.public_key) {
+      return { granted: 0, pending: [member.id] };
+    }
+    const sealed = sodium.sealGroupKeyTo(key, sodium.fromB64(member.public_key));
+    const { granted } = await api.grantKeys(cid, [{ user_id: member.id, sealed: sodium.toB64(sealed) }]);
+    return { granted, pending: [] };
+  }
+
   // addToGroup(cid, userId) — admin adds a member, then seals the HELD group key
   // to that member's pubkey and grants it. If the member is not yet registered
   // (no pubkey) they are returned as pending — call grantPending once they are.
