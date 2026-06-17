@@ -97,12 +97,13 @@ $('registerBtn').addEventListener('click', async () => {
 });
 
 function enterChat(me) {
+  session.me = me;
   $('loginView').hidden = true;
   $('chatView').hidden = false;
   $('who').hidden = false;
   $('who').textContent = me.display_name || me.nickname;
   $('logoutBtn').hidden = false;
-  renderConvList(me.conversations || []);
+  renderConvList();
   const first = (me.conversations || [])[0];
   if (first) {
     selectConversation(first.id);
@@ -350,7 +351,7 @@ function wireOnboardingForms() {
       const cid = await session.startDirect(uid);
       setNote('dmMsg', 'Direct chat ready.', 'ok');
       session.me = await api.getMe();
-      renderConvList(session.me.conversations || []);
+      renderConvList();
       selectConversation(cid);
     } catch {
       setNote('dmMsg', 'Could not start chat.', 'err');
@@ -388,7 +389,7 @@ function wireOnboardingForms() {
         setNote('roomMsg', `Room created. Gave access to ${granted} member(s).`, 'ok');
       }
       session.me = await api.getMe();
-      renderConvList(session.me.conversations || []);
+      renderConvList();
       $('roomPanel').open = false;
       selectConversation(conversationId);
       await refreshOnboardingPanels();
@@ -420,22 +421,71 @@ function wireOnboardingForms() {
 }
 wireOnboardingForms();
 
-function renderConvList(convs) {
+// The sidebar is a UNIFIED list: every family member (registered contact) plus
+// every room. Clicking a person opens — or starts, if none exists yet — the
+// 1-to-1 direct chat with them; clicking a room opens the room. This is async
+// because it needs the roster (GET /api/users); the last roster is cached so a
+// transient fetch failure keeps the list populated.
+let rosterCache = [];
+async function renderConvList() {
   const el = $('convList');
-  el.innerHTML = '';
+  if (!el || !session?.me) return;
+  const convs = session.me.conversations || [];
+  const meId = session.me.id;
+
+  // Map existing direct conversations by the other member's id.
+  const dmByPeer = new Map();
   for (const c of convs) {
+    if (c.kind === 'direct' && c.peer_id != null) dmByPeer.set(Number(c.peer_id), c);
+  }
+  const rooms = convs.filter((c) => c.kind === 'group');
+
+  try { rosterCache = await session.listUsers(); } catch { /* keep last roster */ }
+  const contacts = rosterCache.filter((u) => u.id !== meId && u.registered);
+
+  el.innerHTML = '';
+
+  // People — open or start the direct chat.
+  for (const u of contacts) {
+    const dm = dmByPeer.get(Number(u.id));
+    const b = document.createElement('button');
+    b.className = 'conv' + (dm && dm.id === activeCid ? ' active' : '');
+    b.textContent = u.display_name || u.nickname;
+    if (dm && dm.unread) appendBadge(b, dm.unread);
+    b.addEventListener('click', () => openContact(u, dm));
+    el.appendChild(b);
+  }
+
+  // Rooms — open the room.
+  for (const c of rooms) {
     const b = document.createElement('button');
     b.className = 'conv' + (c.id === activeCid ? ' active' : '');
-    // Direct conversations have no title; label them with the contact's name.
-    b.textContent = c.title || c.peer || c.kind;
-    if (c.unread) {
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = String(c.unread);
-      b.appendChild(badge);
-    }
+    b.textContent = c.title || `room ${c.id}`;
+    if (c.unread) appendBadge(b, c.unread);
     b.addEventListener('click', () => selectConversation(c.id));
     el.appendChild(b);
+  }
+}
+
+function appendBadge(b, n) {
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  badge.textContent = String(n);
+  b.appendChild(badge);
+}
+
+// Open the direct chat with a contact: reuse the existing DM if there is one,
+// otherwise mint it (startDirect is idempotent server-side) and select it.
+async function openContact(user, existingDm) {
+  if (existingDm) { selectConversation(existingDm.id); showThread(); return; }
+  try {
+    const cid = await session.startDirect(user.id);
+    session.me = await api.getMe();
+    await renderConvList();
+    selectConversation(cid);
+    showThread();
+  } catch {
+    showToast('Could not open chat');
   }
 }
 
@@ -477,7 +527,7 @@ $('deleteRoomBtn')?.addEventListener('click', async () => {
   try {
     await session.deleteRoom(cid);
     session.me = await api.getMe();
-    renderConvList(session.me.conversations || []);
+    renderConvList();
     activeCid = null;
     $('deleteRoomBar').hidden = true;
     $('addPeoplePanel').hidden = true;
@@ -862,7 +912,7 @@ function connectWS() {
       } else {
         // Refresh the conversation list to bump the unread badge.
         session.me = await api.getMe();
-        renderConvList(session.me.conversations || []);
+        renderConvList();
       }
     } else if (frame.type === 'message_edited' && frame.conversation_id === activeCid) {
       const bubble = document.querySelector(`.msg[data-mid="${frame.id}"]`);
