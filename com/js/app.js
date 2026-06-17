@@ -426,7 +426,8 @@ function renderConvList(convs) {
   for (const c of convs) {
     const b = document.createElement('button');
     b.className = 'conv' + (c.id === activeCid ? ' active' : '');
-    b.textContent = c.title || c.kind;
+    // Direct conversations have no title; label them with the contact's name.
+    b.textContent = c.title || c.peer || c.kind;
     if (c.unread) {
       const badge = document.createElement('span');
       badge.className = 'badge';
