@@ -315,6 +315,24 @@ button.ghost:active { background: var(--panel-3); }
 }
 .composer button[type="submit"]:hover { filter: brightness(1.06); }
 .composer button[type="submit"]:active { transform: translateY(1px); }
+/* push-to-talk button */
+.composer .talk {
+  flex: 0 0 auto; min-height: var(--tap);
+  border: 1px solid var(--line); border-radius: 999px; padding: 0 18px;
+  background: var(--panel-2); color: var(--text); font-weight: 600; font-size: .95rem;
+  cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: none;
+  transition: background .15s var(--ease), color .15s var(--ease), transform .06s var(--ease);
+}
+.composer .talk:hover { background: var(--panel-3); }
+.composer .talk.recording {
+  background: var(--danger); color: #fff; border-color: var(--danger);
+  animation: talkpulse 1s ease-in-out infinite;
+}
+@keyframes talkpulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent); }
+  50%      { box-shadow: 0 0 0 7px color-mix(in srgb, var(--danger) 0%, transparent); }
+}
+.attachment audio.voice { display: block; width: min(260px, 72vw); height: 40px; }
 
 /* ─── admin + DM panels (collapsible, live on the list screen) ────────────── */
 .panel { border-top: 1px solid var(--line); }

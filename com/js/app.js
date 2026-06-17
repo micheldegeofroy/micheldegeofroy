@@ -828,6 +828,13 @@ async function renderAttachment(m) {
       img.src = url;
       img.alt = filename;
       holder.appendChild(img);
+    } else if (m.kind === 'audio') {
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.preload = 'metadata';
+      audio.src = url;
+      audio.className = 'voice';
+      holder.appendChild(audio);
     } else {
       const a = document.createElement('a');
       a.href = url;
@@ -877,6 +884,84 @@ $('fileInput').addEventListener('change', async (e) => {
     e.target.value = '';
   }
 });
+
+// ── push-to-talk voice messages ──────────────────────────────────────────────
+// Hold the Talk button to record; release to send the audio as an encrypted
+// attachment (kind 'audio') through the SAME blind upload pipeline as files.
+let recorder = null, recStream = null, recChunks = [], recording = false, pressActive = false, recStartTs = 0;
+
+function setTalkRecording(on) {
+  const btn = $('talkBtn');
+  if (btn) btn.classList.toggle('recording', on);
+}
+
+async function startRecording() {
+  if (recording || activeCid == null) return;
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    appendSystem('Voice messages are not supported on this browser.');
+    return;
+  }
+  pressActive = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!pressActive) { stream.getTracks().forEach((t) => t.stop()); return; } // released during prompt
+    recStream = stream;
+    recChunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (ev) => { if (ev.data && ev.data.size) recChunks.push(ev.data); };
+    recorder.onstop = onRecordingStop;
+    recorder.start();
+    recording = true;
+    recStartTs = Date.now();
+    setTalkRecording(true);
+  } catch {
+    pressActive = false;
+    appendSystem('Microphone unavailable — check permissions.');
+  }
+}
+
+function stopRecording() {
+  pressActive = false;
+  if (recording && recorder && recorder.state !== 'inactive') recorder.stop(); // triggers onstop
+  setTalkRecording(false);
+}
+
+async function onRecordingStop() {
+  recording = false;
+  const stream = recStream; recStream = null;
+  const chunks = recChunks; recChunks = [];
+  const rec = recorder; recorder = null;
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  const durationMs = Date.now() - recStartTs;
+  const type = (rec && rec.mimeType) || 'audio/webm';
+  const blob = new Blob(chunks, { type });
+  if (blob.size === 0 || durationMs < 400) return; // accidental tap / empty — ignore
+  const cid = activeCid;
+  if (cid == null) return;
+  try {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const { attachment_id } = await session.uploadFile(cid, bytes, type);
+    const ext = type.includes('ogg') ? 'ogg' : (type.includes('mp4') || type.includes('mpeg')) ? 'm4a' : 'webm';
+    const name = `voice-message.${ext}`;
+    const { nonce, ciphertext } = sodiumHelpers.encryptMessage(name, session.groupKey(cid));
+    const clientMsgId = (crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`);
+    await api.send(cid, { client_msg_id: clientMsgId, kind: 'audio', nonce, ciphertext, attachment_id });
+    await renderMessage({ kind: 'audio', attachment_id, conversation_id: cid, sender_id: session.me.id, nonce, ciphertext });
+    scrollToBottom();
+  } catch {
+    appendSystem('Voice message failed to send.');
+  }
+}
+
+(() => {
+  const btn = $('talkBtn');
+  if (!btn) return;
+  btn.addEventListener('pointerdown', (e) => { e.preventDefault(); startRecording(); });
+  btn.addEventListener('pointerup', (e) => { e.preventDefault(); stopRecording(); });
+  btn.addEventListener('pointerleave', () => { if (recording || pressActive) stopRecording(); });
+  btn.addEventListener('pointercancel', () => stopRecording());
+  btn.addEventListener('contextmenu', (e) => e.preventDefault()); // suppress long-press menu on mobile
+})();
 
 // ── WebSocket live updates + reconnect with backoff ──────────────────────────
 function connectWS() {
