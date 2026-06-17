@@ -255,6 +255,14 @@ export class Session {
     return api.adminDeleteUser(userId);
   }
 
+  // ── WebRTC call signaling (thin wrappers that bind api to THIS session) ──────
+  callOffer(to, sdp, id) { this._use(); return api.callOffer(to, sdp, id); }
+  callAnswer(to, sdp, id) { this._use(); return api.callAnswer(to, sdp, id); }
+  callIce(to, candidate, id) { this._use(); return api.callIce(to, candidate, id); }
+  callHangup(to, id) { this._use(); return api.callHangup(to, id); }
+  callReject(to, id) { this._use(); return api.callReject(to, id); }
+  iceConfig() { this._use(); return api.iceConfig(); }
+
   // createGroup(title, memberIds) — admin flow. Creates the conversation, mints a
   // fresh GROUP_KEY, seals it to every registered member, grants over HTTP, and
   // holds the key locally. Unregistered members are returned as `pending`.

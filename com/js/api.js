@@ -44,6 +44,25 @@ export async function getMe() {
   return jsonOrThrow(res, 'GET /api/me');
 }
 
+// ── WebRTC voice-call signaling ──────────────────────────────────────────────
+async function postCall(path, payload) {
+  const res = await fetchImpl(`${base}${path}`, {
+    method: 'POST',
+    headers: authHeaders({ 'content-type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+  return jsonOrThrow(res, `POST ${path}`);
+}
+export const callOffer = (to, sdp, call_id) => postCall('/api/call/offer', { to, sdp, call_id });
+export const callAnswer = (to, sdp, call_id) => postCall('/api/call/answer', { to, sdp, call_id });
+export const callIce = (to, candidate, call_id) => postCall('/api/call/ice', { to, candidate, call_id });
+export const callHangup = (to, call_id) => postCall('/api/call/hangup', { to, call_id });
+export const callReject = (to, call_id) => postCall('/api/call/reject', { to, call_id });
+export async function iceConfig() {
+  const res = await fetchImpl(`${base}/api/call/ice-config`, { headers: authHeaders() });
+  return jsonOrThrow(res, 'GET /api/call/ice-config');
+}
+
 export async function getKeys() {
   const res = await fetchImpl(`${base}/api/keys`, { headers: authHeaders() });
   return jsonOrThrow(res, 'GET /api/keys');

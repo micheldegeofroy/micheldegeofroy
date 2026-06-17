@@ -124,6 +124,12 @@
           <p id="addPeopleMsg" class="panel-note" role="status"></p>
         </div>
       </details>
+      <!-- Call bar — shown only when a 1-to-1 direct conversation is active. -->
+      <div id="callBar" class="call-bar" hidden>
+        <button id="callBtn" class="call-btn" type="button" aria-label="Start a voice call">
+          <span aria-hidden="true">☎</span> Call
+        </button>
+      </div>
       <!-- Delete room — shown to any member of the active conversation. -->
       <div id="deleteRoomBar" class="delete-room-bar" hidden>
         <button id="deleteRoomBtn" class="delete-room-btn" type="button">Delete room</button>
@@ -139,6 +145,29 @@
         <button id="sendBtn" type="submit">Send</button>
       </form>
     </main>
+
+    <!-- Incoming call overlay -->
+    <div id="incomingCall" class="call-overlay" hidden>
+      <div class="call-card">
+        <p class="call-status">Incoming call</p>
+        <p id="incomingName" class="call-name">Someone</p>
+        <div class="call-actions">
+          <button id="callDeclineBtn" class="call-decline" type="button">Decline</button>
+          <button id="callAcceptBtn" class="call-accept" type="button">Accept</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active / outgoing call bar -->
+    <div id="inCallBar" class="in-call" hidden>
+      <span id="inCallName" class="in-call-name">Call</span>
+      <span id="inCallStatus" class="in-call-status">Calling…</span>
+      <span class="in-call-spacer"></span>
+      <button id="callMuteBtn" class="in-call-btn" type="button">Mute</button>
+      <button id="callHangupBtn" class="in-call-btn danger" type="button">Hang up</button>
+    </div>
+
+    <audio id="remoteAudio" autoplay playsinline></audio>
   </section>
 
   <script type="module" src="./js/app.js"></script>

@@ -592,3 +592,61 @@ button.ghost:active { background: var(--panel-3); }
 /* ─── motion primitives (cheap: transform + opacity only) ─────────────────── */
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes pop  { from { opacity: 0; transform: translateY(4px) scale(.985); } to { opacity: 1; transform: none; } }
+
+/* ─── voice calls ─────────────────────────────────────────────────────────── */
+.call-bar {
+  flex: 0 0 auto; display: flex; justify-content: flex-end;
+  padding: 6px 14px; padding-right: max(14px, var(--sar));
+  background: var(--bg); border-bottom: 1px solid var(--line-soft);
+}
+.call-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 32px; padding: 0 16px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+  background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok);
+  font-size: .8rem; font-weight: 600; cursor: pointer;
+  transition: filter .15s var(--ease);
+}
+.call-btn:hover { filter: brightness(1.12); }
+
+.call-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, #000 62%, transparent); backdrop-filter: blur(3px);
+}
+.call-card {
+  width: min(320px, 86vw); padding: 28px 24px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
+  text-align: center; animation: pop .25s var(--ease) both;
+}
+.call-status { color: var(--muted); font-size: .85rem; margin: 0 0 6px; }
+.call-name { color: var(--text); font-size: 1.4rem; font-weight: 600; margin: 0 0 22px; }
+.call-actions { display: flex; gap: 12px; justify-content: center; }
+.call-actions button {
+  flex: 1; min-height: 48px; border: 0; border-radius: 999px;
+  font-weight: 600; font-size: .95rem; cursor: pointer; color: #fff;
+  transition: filter .15s var(--ease), transform .06s var(--ease);
+}
+.call-actions button:active { transform: translateY(1px); }
+.call-accept { background: var(--ok); }
+.call-decline { background: var(--danger); }
+
+.in-call {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  top: calc(8px + var(--sat)); z-index: 55;
+  width: min(440px, 94vw);
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 14px;
+  background: var(--panel); border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0,0,0,.4); animation: rise .3s var(--ease) both;
+}
+.in-call-name { font-weight: 600; color: var(--text); max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.in-call-status { color: var(--ok); font-variant-numeric: tabular-nums; font-size: .9rem; }
+.in-call-spacer { flex: 1; }
+.in-call-btn {
+  min-height: 34px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+  font-size: .82rem; font-weight: 600; cursor: pointer;
+}
+.in-call-btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+#remoteAudio { display: none; }

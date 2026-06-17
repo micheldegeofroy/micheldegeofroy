@@ -4,6 +4,7 @@
 import { Session } from './client-core.js';
 import * as api from './api.js';
 import * as sodiumHelpers from './sodium-helpers.js';
+import { CallController } from './call.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -27,9 +28,13 @@ const API_BASE = (() => {
 
 let session = null;
 let activeCid = null;
+let activePeerId = null;     // the other member's id when a direct conv is active
+let activePeerName = null;
 let ws = null;
 let wsBackoff = 1000;
 const objectUrls = []; // track for revocation
+let call = null;
+let callTimer = null, callStart = 0;
 
 // ── sign in ──────────────────────────────────────────────────────────────────
 // ONE action: signInFlow sets up a first-time account (admin pre-created it) OR
@@ -531,6 +536,11 @@ async function selectConversation(cid) {
   $('messages').innerHTML = '';
   // Show the delete room button for the active conversation.
   $('deleteRoomBar').hidden = false;
+  // The Call button appears only for 1-to-1 direct conversations.
+  const conv = (session.me?.conversations || []).find((c) => c.id === cid);
+  activePeerId = (conv && conv.kind === 'direct') ? conv.peer_id : null;
+  activePeerName = conv?.peer || null;
+  $('callBar').hidden = activePeerId == null;
   // Refresh the per-room "Add people" affordance for the now-active room.
   setNote('addPeopleMsg', '');
   $('addPeoplePanel').open = false;
@@ -963,6 +973,72 @@ async function onRecordingStop() {
   btn.addEventListener('contextmenu', (e) => e.preventDefault()); // suppress long-press menu on mobile
 })();
 
+// ── voice calls (WebRTC) ─────────────────────────────────────────────────────
+function ensureCall() {
+  if (call) return call;
+  call = new CallController({
+    signal: {
+      offer: (to, sdp, id) => session.callOffer(to, sdp, id),
+      answer: (to, sdp, id) => session.callAnswer(to, sdp, id),
+      ice: (to, c, id) => session.callIce(to, c, id),
+      hangup: (to, id) => session.callHangup(to, id),
+      reject: (to, id) => session.callReject(to, id),
+      iceConfig: () => session.iceConfig(),
+    },
+    onState: renderCallState,
+    onRemoteStream: (stream) => { const a = $('remoteAudio'); if (a) a.srcObject = stream; },
+  });
+  return call;
+}
+
+function renderCallState(state, ctl) {
+  const incoming = $('incomingCall'), bar = $('inCallBar');
+  if (state === 'ringing') {
+    $('incomingName').textContent = ctl.peerName || 'Someone';
+    incoming.hidden = false; bar.hidden = true;
+  } else if (state === 'calling' || state === 'connecting' || state === 'connected') {
+    incoming.hidden = true; bar.hidden = false;
+    $('inCallName').textContent = ctl.peerName || 'Call';
+    if (state === 'connected') {
+      startCallTimer();
+    } else {
+      stopCallTimer();
+      $('inCallStatus').textContent = state === 'calling' ? 'Calling…' : 'Connecting…';
+    }
+  } else { // idle / ended
+    incoming.hidden = true; bar.hidden = true;
+    stopCallTimer();
+    const a = $('remoteAudio'); if (a) a.srcObject = null;
+    $('callMuteBtn').textContent = 'Mute';
+  }
+}
+
+function startCallTimer() {
+  callStart = Date.now();
+  const tick = () => {
+    const s = Math.max(0, Math.floor((Date.now() - callStart) / 1000));
+    $('inCallStatus').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  };
+  tick();
+  clearInterval(callTimer);
+  callTimer = setInterval(tick, 1000);
+}
+function stopCallTimer() { clearInterval(callTimer); callTimer = null; }
+
+$('callBtn')?.addEventListener('click', () => {
+  if (activePeerId == null) return;
+  ensureCall().startCall(activePeerId, activePeerName).catch((err) => {
+    appendSystem(/409/.test(String(err?.message)) ? 'They are not online right now.' : 'Could not start call.');
+  });
+});
+$('callAcceptBtn')?.addEventListener('click', () => ensureCall().accept().catch(() => appendSystem('Could not answer the call.')));
+$('callDeclineBtn')?.addEventListener('click', () => ensureCall().reject());
+$('callHangupBtn')?.addEventListener('click', () => ensureCall().hangup(true));
+$('callMuteBtn')?.addEventListener('click', () => {
+  const muted = ensureCall().toggleMute();
+  $('callMuteBtn').textContent = muted ? 'Unmute' : 'Mute';
+});
+
 // ── WebSocket live updates + reconnect with backoff ──────────────────────────
 function connectWS() {
   if (!session) return;
@@ -1003,6 +1079,17 @@ function connectWS() {
       }
     } else if (frame.type === 'message_deleted' && frame.conversation_id === activeCid) {
       document.querySelector(`.msg[data-mid="${frame.id}"]`)?.remove();
+    } else if (frame.type === 'call-offer') {
+      ensureCall().incoming(frame);
+    } else if (frame.type === 'call-answer') {
+      ensureCall().onAnswer(frame).catch(() => {});
+    } else if (frame.type === 'call-ice') {
+      ensureCall().onIce(frame).catch(() => {});
+    } else if (frame.type === 'call-hangup') {
+      ensureCall().remoteEnded();
+    } else if (frame.type === 'call-reject') {
+      ensureCall().remoteEnded();
+      appendSystem('Call declined.');
     }
   });
   wsBackoff = 1000;
@@ -1018,6 +1105,7 @@ function connectWS() {
 // ── logout / cleanup ─────────────────────────────────────────────────────────
 $('logoutBtn').addEventListener('click', lock);
 function lock() {
+  try { call?.hangup(false); } catch { /* ignore */ }
   for (const u of objectUrls) URL.revokeObjectURL(u);
   objectUrls.length = 0;
   session?.destroy();
