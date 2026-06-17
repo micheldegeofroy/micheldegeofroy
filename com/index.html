@@ -81,18 +81,8 @@
     <aside class="sidebar" aria-label="Sidebar">
       <div id="convList" class="convs" aria-label="Conversations"></div>
 
-      <!-- NEW DM picker (all users). Pick a person -> open/seed a peer DM. -->
-      <details id="dmPanel" class="panel">
-        <summary>New direct message</summary>
-        <div class="panel-body">
-          <label class="field">
-            <span>Person</span>
-            <select id="dmPicker"></select>
-          </label>
-          <button id="dmStartBtn" type="button">Start chat</button>
-          <p id="dmMsg" class="panel-note" role="status"></p>
-        </div>
-      </details>
+      <!-- Direct chats start by tapping a person in the list above; no separate
+           picker needed. -->
 
       <!-- NEW ROOM panel (ALL users). Name a room + pick members -> create it. -->
       <details id="roomPanel" class="panel">
@@ -119,13 +109,6 @@
             <input id="newNick" type="text" placeholder="nickname (e.g. ann)" required />
             <input id="newDisplay" type="text" placeholder="display name (e.g. Ann)" required />
             <button type="submit">Create user</button>
-          </form>
-
-          <h3>Add a member to a group</h3>
-          <form id="addMemberForm" class="stack" autocomplete="off">
-            <select id="addMemberGroup" aria-label="Group"></select>
-            <select id="addMemberUser" aria-label="User"></select>
-            <button type="submit">Add member</button>
           </form>
 
           <h3>Grant pending members</h3>

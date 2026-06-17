@@ -139,16 +139,8 @@ async function refreshOnboardingPanels() {
   try { roster = await session.listUsers(); } catch { roster = []; }
   const others = roster.filter((u) => u.id !== me.id);
 
-  // DM picker — list everyone except me. Available to ALL users now.
-  const dmPicker = $('dmPicker');
-  $('dmPanel').hidden = others.length === 0;
-  dmPicker.innerHTML = '';
-  for (const u of others) {
-    const o = document.createElement('option');
-    o.value = String(u.id);
-    o.textContent = `${u.display_name || u.nickname}`;
-    dmPicker.appendChild(o);
-  }
+  // (Direct chats are started by tapping a person in the unified sidebar list;
+  // the old DM picker panel was removed.)
 
   // New-room member checklist — registered, non-me users. Available to ALL users.
   const rm = $('roomMembers');
@@ -203,10 +195,8 @@ async function refreshOnboardingPanels() {
     ul.appendChild(li);
   }
 
-  // Add-member selects: groups I'm in + all other users.
-  const groups = (me.conversations || []).filter((c) => c.kind === 'group');
-  fillSelect($('addMemberGroup'), groups.map((g) => ({ value: g.id, text: g.title || `group ${g.id}` })));
-  fillSelect($('addMemberUser'), others.map((u) => ({ value: u.id, text: u.display_name || u.nickname })));
+  // (Adding people to a room is done from inside the room via "Add people";
+  // the admin "Add a member to a group" form was removed.)
 
   renderPendingList(users);
 }
@@ -343,21 +333,6 @@ async function addPersonToRoom(cid, uid) {
 }
 
 function wireOnboardingForms() {
-  $('dmStartBtn')?.addEventListener('click', async () => {
-    const sel = $('dmPicker');
-    const uid = Number(sel.value);
-    if (!uid) return;
-    try {
-      const cid = await session.startDirect(uid);
-      setNote('dmMsg', 'Direct chat ready.', 'ok');
-      session.me = await api.getMe();
-      renderConvList();
-      selectConversation(cid);
-    } catch {
-      setNote('dmMsg', 'Could not start chat.', 'err');
-    }
-  });
-
   $('createUserForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const nickname = $('newNick').value.trim();
@@ -398,26 +373,6 @@ function wireOnboardingForms() {
     }
   });
 
-  $('addMemberForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const cid = Number($('addMemberGroup').value);
-    const uid = Number($('addMemberUser').value);
-    if (!cid || !uid) return;
-    try {
-      const res = await session.addToGroup(cid, uid);
-      if (res.pending.length) {
-        const set = pendingByGroup.get(cid) || new Set();
-        for (const p of res.pending) set.add(p);
-        pendingByGroup.set(cid, set);
-        setNote('adminMsg', 'Added, but member not registered yet — grant after they register.', 'err');
-      } else {
-        setNote('adminMsg', 'Member added and keyed.', 'ok');
-      }
-      await refreshOnboardingPanels();
-    } catch {
-      setNote('adminMsg', 'Could not add member.', 'err');
-    }
-  });
 }
 wireOnboardingForms();
 
@@ -974,7 +929,7 @@ function lock() {
   $('addPeopleList').innerHTML = '';
   $('userList').innerHTML = '';
   $('pendingList').innerHTML = '';
-  setNote('adminMsg', ''); setNote('dmMsg', '');
+  setNote('adminMsg', '');
   setNote('roomMsg', ''); setNote('addPeopleMsg', '');
 }
 
