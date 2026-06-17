@@ -452,9 +452,25 @@ function showList() {
 }
 $('backBtn')?.addEventListener('click', showList);
 
-// ── delete room ──────────────────────────────────────────────────────────────
+// ── delete room (inline two-tap confirm, no popup) ───────────────────────────
+let roomDelArmed = false, roomDelTimer = null;
+function resetRoomDelete() {
+  roomDelArmed = false;
+  clearTimeout(roomDelTimer);
+  const btn = $('deleteRoomBtn');
+  if (btn) { btn.textContent = 'Delete room'; btn.classList.remove('armed'); }
+}
 $('deleteRoomBtn')?.addEventListener('click', async () => {
-  if (!confirm("Delete this room for everyone? This can't be undone.")) return;
+  const btn = $('deleteRoomBtn');
+  if (!roomDelArmed) {
+    roomDelArmed = true;
+    btn.textContent = 'Tap again to delete for everyone';
+    btn.classList.add('armed');
+    clearTimeout(roomDelTimer);
+    roomDelTimer = setTimeout(resetRoomDelete, 3500);
+    return;
+  }
+  resetRoomDelete();
   const cid = activeCid;
   if (cid == null) return;
   try {
@@ -648,10 +664,17 @@ function buildMsgMenu(m, wrap, mine) {
       menu.appendChild(editItem);
     }
 
-    // Delete — own messages or admin for any.
+    // Delete — own messages or admin for any. Inline two-tap confirm (no popup):
+    // first tap arms it, second tap deletes; tapping elsewhere closes the menu.
     if (mine || isAdmin) {
-      const delItem = menuItem('Delete', async () => {
-        if (!confirm('Delete this message?')) return;
+      const delItem = document.createElement('button');
+      delItem.className = 'msg-action msg-action--danger';
+      delItem.textContent = 'Delete';
+      let armed = false;
+      delItem.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!armed) { armed = true; delItem.textContent = 'Tap again to delete'; return; }
+        closeOpenMenu();
         try {
           await session.deleteMessage(activeCid, m.id);
           wrap.remove();
@@ -659,7 +682,6 @@ function buildMsgMenu(m, wrap, mine) {
           showToast('Delete failed');
         }
       });
-      delItem.classList.add('msg-action--danger');
       menu.appendChild(delItem);
     }
 

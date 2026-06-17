@@ -444,6 +444,12 @@ button.ghost:active { background: var(--panel-3); }
 }
 .delete-room-btn:hover { opacity: 1; background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .delete-room-btn:active { opacity: 1; filter: brightness(.9); }
+.delete-room-btn.armed {
+  opacity: 1;
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
 
 /* ─── wide screens: side-by-side, back button irrelevant ──────────────────── */
 @media (min-width: 820px) {
