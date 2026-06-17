@@ -6,7 +6,7 @@
 // only in memory. A stale or poisoned cache of crypto code would break the trust
 // model, so the shell is served network-first with a cache fallback for offline
 // install only.
-const SHELL_CACHE = 'com-shell-v12';
+const SHELL_CACHE = 'com-shell-v13';
 const SHELL = [
   './',
   './css/style.css',
@@ -17,6 +17,7 @@ const SHELL = [
   './js/opaque-client.js',
   './js/sodium-helpers.js',
   './manifest.webmanifest',
+  './com-logo.png',
   // NOTE: vendored crypto libs (web/vendor/*) get added here for real deployment.
 ];
 

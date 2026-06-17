@@ -3,26 +3,27 @@
    System fonts only. No CDNs, no external resources. Loads instantly. */
 
 :root {
-  /* surfaces — layered, low-contrast dark with a faint cool cast */
-  --bg:        #0b0f14;   /* app background */
-  --panel:     #11171f;   /* bars, sidebar */
-  --panel-2:   #19222d;   /* inputs, incoming bubbles, rows */
-  --panel-3:   #212c38;   /* raised / hover */
-  --line:      #ffffff14; /* hairline borders */
-  --line-soft: #ffffff0d;
+  /* monochrome — matches degeofroy.com: near-black surfaces, white text, grey */
+  --bg:        #0d0d0d;   /* app background */
+  --panel:     #141414;   /* bars, sidebar (the site's rgb(20,20,20)) */
+  --panel-2:   #1c1c1c;   /* inputs, incoming bubbles, rows */
+  --panel-3:   #262626;   /* raised / hover */
+  --line:      #ffffff1f; /* hairline borders */
+  --line-soft: #ffffff0f;
 
   /* text */
-  --text:    #e8eef4;
-  --muted:   #8b9aab;
-  --faint:   #5d6b7a;
+  --text:    #f5f5f5;
+  --muted:   #9b9b9b;     /* the site's grey rgb(155,155,155) */
+  --faint:   #6e6e6e;
 
-  /* accent — a quiet, trustworthy blue */
-  --accent:    #3d7dff;
-  --accent-2:  #5a92ff;
-  --mine:      #2b4f8f;   /* own bubble */
-  --mine-edge: #3a63ad;
-  --ok:        #57c98a;
-  --danger:    #ff6b6b;
+  /* accent — monochrome: white is the primary, black text sits on it */
+  --accent:    #f0f0f0;
+  --accent-2:  #cccccc;
+  --on-accent: #0d0d0d;   /* text/icon on a white (accent) surface */
+  --mine:      #2b2b2b;   /* own bubble — light grey on black */
+  --mine-edge: #3a3a3a;
+  --ok:        #f0f0f0;   /* positive/primary == white (no green) */
+  --danger:    #ff6b6b;   /* the one functional colour: destructive actions */
 
   --radius:    14px;
   --radius-sm: 10px;
@@ -68,9 +69,14 @@ body {
   border-bottom: 1px solid var(--line);
   flex: 0 0 auto;
 }
+/* logo wordmark — the source PNG is black on transparent, so invert to white */
 .brand {
-  font-weight: 700; letter-spacing: 3px; font-size: .95rem;
-  color: var(--text);
+  height: 20px; width: auto; display: block;
+  filter: invert(1);
+}
+.login-logo {
+  height: 56px; width: auto; display: block;
+  margin: 0 auto 6px; filter: invert(1);
 }
 .who {
   color: var(--muted); margin-left: auto;
@@ -151,7 +157,7 @@ button.ghost:active { background: var(--panel-3); }
   transition: filter .15s var(--ease), transform .06s var(--ease);
 }
 .login button[type="submit"] {
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--on-accent);
   box-shadow: 0 6px 18px -8px var(--accent);
 }
 .login button[type="submit"]:hover { filter: brightness(1.06); }
@@ -230,7 +236,7 @@ button.ghost:active { background: var(--panel-3); }
   flex: 0 0 auto;
   min-width: 20px; height: 20px; padding: 0 6px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--on-accent);
   border-radius: 999px; font-size: .72rem; font-weight: 600;
 }
 
@@ -309,7 +315,7 @@ button.ghost:active { background: var(--panel-3); }
 .composer button[type="submit"] {
   flex: 0 0 auto; min-height: var(--tap);
   border: 0; border-radius: 999px; padding: 0 20px;
-  background: var(--accent); color: #fff; font-weight: 600; font-size: .95rem;
+  background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: .95rem;
   cursor: pointer;
   transition: filter .15s var(--ease), transform .06s var(--ease);
 }
@@ -381,7 +387,7 @@ button.ghost:active { background: var(--panel-3); }
 .panel button {
   min-height: var(--tap);
   border: 0; border-radius: var(--radius-sm); padding: 0 16px;
-  background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; font-size: .92rem;
+  background: var(--accent); color: var(--on-accent); font-weight: 600; cursor: pointer; font-size: .92rem;
   transition: filter .15s var(--ease), transform .06s var(--ease);
 }
 .panel button:hover { filter: brightness(1.06); }
@@ -398,16 +404,16 @@ button.ghost:active { background: var(--panel-3); }
   font-size: .68rem; letter-spacing: .3px; padding: 2px 8px; border-radius: 999px;
   white-space: nowrap;
 }
-.tag.reg   { background: #1f6b4133; color: #8fe0b1; border: 1px solid #1f6b4155; }
-.tag.unreg { background: #6b4a1f33; color: #e7c79a; border: 1px solid #6b4a1f55; }
-.tag.adm   { background: #3d7dff2e; color: var(--accent-2); border: 1px solid #3d7dff55; }
+.tag.reg   { background: #ffffff14; color: #dcdcdc; border: 1px solid #ffffff26; }
+.tag.unreg { background: #ffffff0a; color: var(--muted); border: 1px solid #ffffff1a; }
+.tag.adm   { background: #ffffff1f; color: var(--text); border: 1px solid #ffffff36; }
 .tag.mkadm { background: var(--panel-3); color: var(--muted); border: 1px solid var(--line); }
 /* clickable admin chips — click the badge to toggle admin */
 .tag.clickable { cursor: pointer; padding: 4px 11px; transition: filter .12s var(--ease), background .12s var(--ease); }
 .tag.clickable:hover { filter: brightness(1.15); }
 .tag.mkadm.clickable:hover { background: var(--panel-2); color: var(--text); }
 /* suspend (caution) + delete (danger) chips */
-.tag.suspend { background: #6b4a1f33; color: #e7c79a; border: 1px solid #6b4a1f55; }
+.tag.suspend { background: #ffffff0a; color: #bdbdbd; border: 1px solid #ffffff1a; }
 .tag.del { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); }
 .tag.del.armed { background: var(--danger); color: #fff; border-color: var(--danger); }
 .checks { display: flex; flex-direction: column; gap: 8px; }
@@ -559,7 +565,7 @@ button.ghost:active { background: var(--panel-3); }
   font-size: .82rem; font-weight: 600; cursor: pointer;
   transition: filter .12s var(--ease);
 }
-.msg-edit-save { background: var(--accent); color: #fff; }
+.msg-edit-save { background: var(--accent); color: var(--on-accent); }
 .msg-edit-save:hover { filter: brightness(1.1); }
 .msg-edit-cancel { background: var(--panel-3); color: var(--muted); border: 1px solid var(--line); }
 .msg-edit-cancel:hover { color: var(--text); }
@@ -628,7 +634,7 @@ button.ghost:active { background: var(--panel-3); }
   transition: filter .15s var(--ease), transform .06s var(--ease);
 }
 .call-actions button:active { transform: translateY(1px); }
-.call-accept { background: var(--ok); }
+.call-accept { background: var(--ok); color: var(--on-accent); }
 .call-decline { background: var(--danger); }
 
 .in-call {
