@@ -31,7 +31,9 @@ let ws = null;
 let wsBackoff = 1000;
 const objectUrls = []; // track for revocation
 
-// ── login ──────────────────────────────────────────────────────────────────
+// ── sign in ──────────────────────────────────────────────────────────────────
+// ONE action: signInFlow sets up a first-time account (admin pre-created it) OR
+// logs in a returning user, deciding automatically. No separate "register" step.
 $('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('loginError').textContent = '';
@@ -39,16 +41,20 @@ $('loginForm').addEventListener('submit', async (e) => {
   const honeypot = $('username').value;
 
   // Honeypot: legit users leave it empty. If filled, refuse locally; the real
-  // tripwire is server-side (it logs/alerts on any honeypot value at login).
+  // tripwire is server-side (it alerts on any honeypot value on either path).
   if (honeypot.trim()) {
     $('loginError').textContent = 'Sign-in failed.';
+    return;
+  }
+  if (!passphrase) {
+    $('loginError').textContent = 'Enter your passphrase.';
     return;
   }
 
   $('loginBtn').disabled = true;
   try {
     session = new Session({ base: API_BASE });
-    const me = await session.loginFlow(passphrase, API_BASE);
+    const me = await session.signInFlow(passphrase, honeypot, API_BASE);
     $('passphrase').value = ''; // clear the secret from the DOM immediately
     enterChat(me);
   } catch (err) {
@@ -56,42 +62,6 @@ $('loginForm').addEventListener('submit', async (e) => {
     session?.destroy();
     session = null;
   } finally {
-    $('loginBtn').disabled = false;
-  }
-});
-
-// ── register (first-time setup) ───────────────────────────────────────────
-// A user row must already exist (seeded by admin). This registers the OPAQUE
-// credential + uploads the identity keypair, then auto-logs in.
-$('registerBtn').addEventListener('click', async () => {
-  $('loginError').textContent = '';
-  const passphrase = $('passphrase').value;
-  const honeypot = $('username').value;
-
-  if (honeypot.trim()) {
-    $('loginError').textContent = 'Sign-in failed.';
-    return;
-  }
-  if (!passphrase) {
-    $('loginError').textContent = 'Enter your passphrase first.';
-    return;
-  }
-
-  $('registerBtn').disabled = true;
-  $('loginBtn').disabled = true;
-  $('loginError').textContent = 'Setting up your account…';
-  try {
-    session = new Session({ base: API_BASE });
-    const me = await session.registerFlow(passphrase, API_BASE);
-    $('passphrase').value = ''; // clear the secret from the DOM immediately
-    $('loginError').textContent = '';
-    enterChat(me);
-  } catch (err) {
-    $('loginError').textContent = 'Registration failed. Check your passphrase or ask your admin.';
-    session?.destroy();
-    session = null;
-  } finally {
-    $('registerBtn').disabled = false;
     $('loginBtn').disabled = false;
   }
 });

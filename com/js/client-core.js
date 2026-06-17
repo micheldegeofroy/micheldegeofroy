@@ -79,6 +79,46 @@ export class Session {
     return this.loginFlow(passphrase, base);
   }
 
+  // signInFlow(passphrase) — UNIFIED entry point: one action that sets up a
+  // first-time account OR logs in a returning user, deciding automatically.
+  //   - register/start returns 200 (admin-created, not yet set up) -> finish
+  //     registration with this passphrase, then log in.
+  //   - 409 (already registered) -> just log in.
+  //   - 403 (no such account / suspended / honeypot) -> reject ("sign-in failed").
+  // First sign-in therefore SETS the passphrase, exactly like the old separate
+  // "Set up my account" did — just without the extra button.
+  async signInFlow(passphrase, honeypot = '', base = this.base) {
+    await sodium.ready();
+    this.base = base;
+    api.setBase(base);
+    if (this.fetchImpl) api.setFetch(this.fetchImpl);
+
+    const norm = normalizePassphrase(passphrase);
+    const nickname = nicknameFromPassphrase(norm);
+
+    try {
+      // Attempt OPAQUE registration. The server permits it only for an
+      // admin-created account that has no record yet (200). honeypot is forwarded
+      // so the tripwire fires on this path too.
+      const { record, exportKey } = await opaque.register(norm, nickname, base, this.fetchImpl, undefined, honeypot);
+      const id = sodium.newIdentityKeypair();
+      const wrappedPrivateKey = sodium.wrapPrivateKey(id.privateKey, exportKey);
+      await opaque.registerFinishUpload(
+        nickname,
+        { record, publicKey: id.publicKey, wrappedPrivateKey },
+        base,
+        this.fetchImpl,
+      );
+      // Account is now set up — fall through to login below.
+    } catch (err) {
+      // 409 anywhere in the register ceremony = already set up -> just log in.
+      // Any other status (403 unknown/suspended/honeypot, etc.) -> surface it.
+      if (err?.status !== 409) throw err;
+    }
+
+    return this.loginFlow(passphrase, base);
+  }
+
   // loginFlow(passphrase) — full client login: OPAQUE -> token -> unwrap private
   // key -> open every sealed conversation GROUP_KEY. Holds them in memory.
   async loginFlow(passphrase, base = this.base) {

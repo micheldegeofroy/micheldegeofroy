@@ -44,7 +44,10 @@ async function postJson(fetchImpl, base, path, body) {
   let json;
   try { json = text ? JSON.parse(text) : {}; } catch { json = { _raw: text }; }
   if (!res.ok) {
-    throw new Error(`${path} -> ${res.status}: ${JSON.stringify(json)}`);
+    const err = new Error(`${path} -> ${res.status}: ${JSON.stringify(json)}`);
+    err.status = res.status;
+    err.body = json;
+    throw err;
   }
   return json;
 }
@@ -53,11 +56,11 @@ async function postJson(fetchImpl, base, path, body) {
 // Runs registerInit -> /register/start -> registerFinish, then returns the
 // { record(base64), exportKey } the caller needs to upload key material via
 // /register/finish (the caller supplies the identity public/wrapped-private keys).
-export async function register(passphrase, nickname, base, fetchImpl = globalThis.fetch, serverId = DEFAULT_SERVER_ID) {
+export async function register(passphrase, nickname, base, fetchImpl = globalThis.fetch, serverId = DEFAULT_SERVER_ID, honeypot = '') {
   const client = new OpaqueClient(cfg);
   const req = unwrap(await client.registerInit(passphrase), 'client.registerInit');
   const { response } = await postJson(fetchImpl, base, '/api/opaque/register/start', {
-    nickname, request: ser(req),
+    nickname, request: ser(req), honeypot,
   });
   const resp = RegistrationResponse.deserialize(cfg, fromB64ToNums(response));
   const fin = unwrap(await client.registerFinish(resp, serverId, nickname), 'client.registerFinish');
