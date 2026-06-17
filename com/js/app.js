@@ -192,6 +192,40 @@ async function refreshOnboardingPanels() {
       li.appendChild(mk);
     }
     li.appendChild(u.registered ? tag('registered', 'reg') : tag('pending', 'unreg'));
+
+    // Suspend / restore + permanent delete (never for yourself).
+    if (!isSelf) {
+      if (u.is_active) {
+        const s = tag('suspend', 'suspend clickable');
+        s.title = 'Block this user from signing in';
+        s.addEventListener('click', () => toggleActive(u.id, false));
+        li.appendChild(s);
+      } else {
+        li.appendChild(tag('suspended', 'unreg'));
+        const r = tag('restore', 'mkadm clickable');
+        r.title = 'Allow this user to sign in again';
+        r.addEventListener('click', () => toggleActive(u.id, true));
+        li.appendChild(r);
+      }
+      // Permanent delete — inline two-tap (no popup), auto-disarms after 3.5s.
+      const del = tag('delete', 'del clickable');
+      del.title = 'Permanently delete this user and shred everything they sent';
+      let armed = false, disarm = null;
+      del.addEventListener('click', () => {
+        if (!armed) {
+          armed = true;
+          del.textContent = 'tap to confirm';
+          del.classList.add('armed');
+          clearTimeout(disarm);
+          disarm = setTimeout(() => { armed = false; del.textContent = 'delete'; del.classList.remove('armed'); }, 3500);
+          return;
+        }
+        clearTimeout(disarm);
+        deleteUser(u.id);
+      });
+      li.appendChild(del);
+    }
+
     ul.appendChild(li);
   }
 
@@ -207,6 +241,30 @@ async function toggleAdmin(id, makeAdmin) {
     await refreshOnboardingPanels();
   } catch {
     setNote('adminMsg', 'Could not change admin.', 'err');
+  }
+}
+
+async function toggleActive(id, active) {
+  try {
+    await session.setUserActive(id, active);
+    setNote('adminMsg', active ? 'User restored.' : 'User suspended.', 'ok');
+    await refreshOnboardingPanels();
+    session.me = await api.getMe();
+    renderConvList();
+  } catch {
+    setNote('adminMsg', active ? 'Could not restore user.' : 'Could not suspend user.', 'err');
+  }
+}
+
+async function deleteUser(id) {
+  try {
+    await session.deleteUser(id);
+    setNote('adminMsg', 'User permanently deleted.', 'ok');
+    await refreshOnboardingPanels();
+    session.me = await api.getMe();
+    renderConvList();
+  } catch {
+    setNote('adminMsg', 'Could not delete user.', 'err');
   }
 }
 

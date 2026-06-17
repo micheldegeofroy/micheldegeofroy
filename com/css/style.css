@@ -388,6 +388,10 @@ button.ghost:active { background: var(--panel-3); }
 .tag.clickable { cursor: pointer; padding: 4px 11px; transition: filter .12s var(--ease), background .12s var(--ease); }
 .tag.clickable:hover { filter: brightness(1.15); }
 .tag.mkadm.clickable:hover { background: var(--panel-2); color: var(--text); }
+/* suspend (caution) + delete (danger) chips */
+.tag.suspend { background: #6b4a1f33; color: #e7c79a; border: 1px solid #6b4a1f55; }
+.tag.del { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); }
+.tag.del.armed { background: var(--danger); color: #fff; border-color: var(--danger); }
 .checks { display: flex; flex-direction: column; gap: 8px; }
 .checks label {
   display: flex; align-items: center; gap: 10px; min-height: 40px;

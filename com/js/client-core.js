@@ -199,6 +199,22 @@ export class Session {
     return api.adminSetAdmin(userId, isAdmin);
   }
 
+  // setUserActive(userId, active) — suspend (false) or restore (true) a user.
+  // Suspending revokes their sessions and blocks login. Server blocks self-change.
+  async setUserActive(userId, active) {
+    if (!this.me?.is_admin) throw new Error('admin only');
+    this._use();
+    return api.adminSetActive(userId, active);
+  }
+
+  // deleteUser(userId) — permanently delete a user and shred everything they sent.
+  // Irreversible. Server blocks self-deletion and non-admins.
+  async deleteUser(userId) {
+    if (!this.me?.is_admin) throw new Error('admin only');
+    this._use();
+    return api.adminDeleteUser(userId);
+  }
+
   // createGroup(title, memberIds) — admin flow. Creates the conversation, mints a
   // fresh GROUP_KEY, seals it to every registered member, grants over HTTP, and
   // holds the key locally. Unregistered members are returned as `pending`.

@@ -6,7 +6,7 @@
 // only in memory. A stale or poisoned cache of crypto code would break the trust
 // model, so the shell is served network-first with a cache fallback for offline
 // install only.
-const SHELL_CACHE = 'com-shell-v8';
+const SHELL_CACHE = 'com-shell-v9';
 const SHELL = [
   './',
   './css/style.css',

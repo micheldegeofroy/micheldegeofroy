@@ -111,6 +111,23 @@ export async function adminSetAdmin(userId, isAdmin) {
   return jsonOrThrow(res, `POST /api/admin/users/${userId}/admin`);
 }
 
+export async function adminSetActive(userId, active) {
+  const res = await fetchImpl(`${base}/api/admin/users/${userId}/active`, {
+    method: 'POST',
+    headers: authHeaders({ 'content-type': 'application/json' }),
+    body: JSON.stringify({ active }),
+  });
+  return jsonOrThrow(res, `POST /api/admin/users/${userId}/active`);
+}
+
+export async function adminDeleteUser(userId) {
+  const res = await fetchImpl(`${base}/api/admin/users/${userId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return jsonOrThrow(res, `DELETE /api/admin/users/${userId}`);
+}
+
 export async function adminCreateConversation(title, memberIds) {
   const res = await fetchImpl(`${base}/api/admin/conversations`, {
     method: 'POST',
