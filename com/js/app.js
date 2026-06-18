@@ -728,9 +728,10 @@ function buildMsgMenu(m, wrap, mine) {
       menu.appendChild(editItem);
     }
 
-    // Delete — own messages or admin for any. Inline two-tap confirm (no popup):
-    // first tap arms it, second tap deletes; tapping elsewhere closes the menu.
-    if (mine || isAdmin) {
+    // Delete — own messages or admin for any. Requires a real message id (an
+    // un-acked optimistic bubble has none — deleting it would 404). Inline two-tap
+    // confirm (no popup): first tap arms it, second tap deletes.
+    if ((mine || isAdmin) && m.id) {
       const delItem = document.createElement('button');
       delItem.className = 'msg-action msg-action--danger';
       delItem.textContent = 'Delete';
@@ -913,8 +914,8 @@ $('fileInput').addEventListener('change', async (e) => {
     // Encrypt the original filename as the message body so receivers can name the download.
     const { nonce, ciphertext } = sodiumHelpers.encryptMessage(file.name || ' ', session.groupKey(activeCid));
     const clientMsgId = (crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`);
-    await api.send(activeCid, { client_msg_id: clientMsgId, kind, nonce, ciphertext, attachment_id });
-    await renderMessage({ kind, attachment_id, conversation_id: activeCid, sender_id: session.me.id, nonce, ciphertext });
+    const { id: sentId } = await api.send(activeCid, { client_msg_id: clientMsgId, kind, nonce, ciphertext, attachment_id });
+    await renderMessage({ id: sentId, kind, attachment_id, conversation_id: activeCid, sender_id: session.me.id, nonce, ciphertext });
     scrollToBottom();
   } catch {
     appendSystem('Attachment failed to send.');
@@ -977,7 +978,7 @@ async function onRecordingStop() {
   const cid = activeCid;
   if (cid == null) return;
 
-  let attachment_id, nonce, ciphertext;
+  let attachment_id, nonce, ciphertext, sentId;
   try {
     const bytes = new Uint8Array(await blob.arrayBuffer());
     ({ attachment_id } = await session.uploadFile(cid, bytes, type));
@@ -985,15 +986,16 @@ async function onRecordingStop() {
     const name = `voice-message.${ext}`;
     ({ nonce, ciphertext } = sodiumHelpers.encryptMessage(name, session.groupKey(cid)));
     const clientMsgId = (crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`);
-    await api.send(cid, { client_msg_id: clientMsgId, kind: 'audio', nonce, ciphertext, attachment_id });
+    ({ id: sentId } = await api.send(cid, { client_msg_id: clientMsgId, kind: 'audio', nonce, ciphertext, attachment_id }));
   } catch (err) {
     appendSystem('Voice message failed to send: ' + (err?.message || err));
     return;
   }
   // Sent. The optimistic render below downloads+plays the clip; a render/playback
-  // hiccup must NOT be reported as a send failure (the message already went).
+  // hiccup must NOT be reported as a send failure (the message already went). Pass
+  // the real message id so its action menu (delete) works before any reload.
   try {
-    await renderMessage({ kind: 'audio', content_type: type, attachment_id, conversation_id: cid, sender_id: session.me.id, nonce, ciphertext });
+    await renderMessage({ id: sentId, kind: 'audio', content_type: type, attachment_id, conversation_id: cid, sender_id: session.me.id, nonce, ciphertext });
     scrollToBottom();
   } catch { /* it sent; it will appear on reload */ }
 }
