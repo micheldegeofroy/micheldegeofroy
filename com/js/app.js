@@ -702,7 +702,7 @@ function buildMsgMenu(m, wrap, mine) {
           const newText = input.value.trim();
           if (!newText || newText === current) { cancelEdit(); return; }
           try {
-            const { edited_at } = await session.editText(activeCid, m.id, newText);
+            const { edited_at } = await session.editText(m.conversation_id ?? activeCid, m.id, newText);
             // Restore text node with updated content.
             textEl.textContent = newText;
             editRow.replaceWith(textEl);
@@ -741,7 +741,9 @@ function buildMsgMenu(m, wrap, mine) {
         if (!armed) { armed = true; delItem.textContent = 'Tap again to delete'; return; }
         closeOpenMenu();
         try {
-          await session.deleteMessage(activeCid, m.id);
+          // Delete the message from ITS OWN conversation, not whatever is active
+          // (activeCid can be stale relative to this specific bubble).
+          await session.deleteMessage(m.conversation_id ?? activeCid, m.id);
           wrap.remove();
         } catch (err) {
           showToast('Delete failed: ' + (err?.message || err));
@@ -894,9 +896,10 @@ $('composer').addEventListener('submit', async (e) => {
   if (!text || activeCid == null) return;
   $('msgInput').value = '';
   try {
-    const { id } = await session.sendText(activeCid, text);
+    const cid = activeCid;
+    const { id } = await session.sendText(cid, text);
     // Optimistic render (server does not echo our own sends back to us over WS).
-    await renderMessage({ id, kind: 'text', text, sender_id: session.me.id });
+    await renderMessage({ id, kind: 'text', text, conversation_id: cid, sender_id: session.me.id });
     scrollToBottom();
   } catch {
     appendSystem('Message failed to send.');
