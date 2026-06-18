@@ -644,6 +644,26 @@ function buildMsgMenu(m, wrap, mine) {
       menu.appendChild(dlItem);
     }
 
+    // Playback speed — audio messages. Cycles 1× → 1.5× → 2× and keeps the menu
+    // open, updating its own label, so the native player menu isn't needed.
+    if (kind === 'audio') {
+      const audioEl = wrap.querySelector('audio.voice');
+      if (audioEl) {
+        const speeds = [1, 1.5, 2];
+        const speedItem = document.createElement('button');
+        speedItem.className = 'msg-action';
+        const label = () => { speedItem.textContent = `Speed ${audioEl.playbackRate}×`; };
+        label();
+        speedItem.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const i = speeds.indexOf(audioEl.playbackRate);
+          audioEl.playbackRate = speeds[(i + 1) % speeds.length];
+          label();
+        });
+        menu.appendChild(speedItem);
+      }
+    }
+
     // Edit — only own text messages that have an id (not unsent optimistic).
     if (mine && kind === 'text' && m.id) {
       const editItem = menuItem('Edit', () => {
@@ -848,6 +868,10 @@ async function renderAttachment(m) {
       audio.preload = 'metadata';
       audio.src = aurl;
       audio.className = 'voice';
+      // Strip the player's native "⋯" overflow (download + playback speed) so the
+      // only menu is the message's own — speed/download live there instead.
+      audio.setAttribute('controlsList', 'nodownload noplaybackrate');
+      audio.disableRemotePlayback = true;
       holder.appendChild(audio);
     } else {
       const a = document.createElement('a');
