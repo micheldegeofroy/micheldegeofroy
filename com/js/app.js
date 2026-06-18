@@ -743,8 +743,8 @@ function buildMsgMenu(m, wrap, mine) {
         try {
           await session.deleteMessage(activeCid, m.id);
           wrap.remove();
-        } catch {
-          showToast('Delete failed');
+        } catch (err) {
+          showToast('Delete failed: ' + (err?.message || err));
         }
       });
       menu.appendChild(delItem);
