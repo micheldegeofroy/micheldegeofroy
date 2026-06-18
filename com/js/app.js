@@ -839,10 +839,14 @@ async function renderAttachment(m) {
       img.alt = filename;
       holder.appendChild(img);
     } else if (m.kind === 'audio') {
+      // Re-wrap the bytes with an audio MIME type so the <audio> element can play
+      // them (the generic blob above is untyped). Fall back to webm/opus.
+      const aurl = URL.createObjectURL(new Blob([bytes], { type: m.content_type || 'audio/webm' }));
+      objectUrls.push(aurl);
       const audio = document.createElement('audio');
       audio.controls = true;
       audio.preload = 'metadata';
-      audio.src = url;
+      audio.src = aurl;
       audio.className = 'voice';
       holder.appendChild(audio);
     } else {
@@ -948,19 +952,26 @@ async function onRecordingStop() {
   if (blob.size === 0 || durationMs < 400) return; // accidental tap / empty — ignore
   const cid = activeCid;
   if (cid == null) return;
+
+  let attachment_id, nonce, ciphertext;
   try {
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    const { attachment_id } = await session.uploadFile(cid, bytes, type);
+    ({ attachment_id } = await session.uploadFile(cid, bytes, type));
     const ext = type.includes('ogg') ? 'ogg' : (type.includes('mp4') || type.includes('mpeg')) ? 'm4a' : 'webm';
     const name = `voice-message.${ext}`;
-    const { nonce, ciphertext } = sodiumHelpers.encryptMessage(name, session.groupKey(cid));
+    ({ nonce, ciphertext } = sodiumHelpers.encryptMessage(name, session.groupKey(cid)));
     const clientMsgId = (crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`);
     await api.send(cid, { client_msg_id: clientMsgId, kind: 'audio', nonce, ciphertext, attachment_id });
-    await renderMessage({ kind: 'audio', attachment_id, conversation_id: cid, sender_id: session.me.id, nonce, ciphertext });
-    scrollToBottom();
-  } catch {
-    appendSystem('Voice message failed to send.');
+  } catch (err) {
+    appendSystem('Voice message failed to send: ' + (err?.message || err));
+    return;
   }
+  // Sent. The optimistic render below downloads+plays the clip; a render/playback
+  // hiccup must NOT be reported as a send failure (the message already went).
+  try {
+    await renderMessage({ kind: 'audio', content_type: type, attachment_id, conversation_id: cid, sender_id: session.me.id, nonce, ciphertext });
+    scrollToBottom();
+  } catch { /* it sent; it will appear on reload */ }
 }
 
 (() => {
