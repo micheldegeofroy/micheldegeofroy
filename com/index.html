@@ -92,6 +92,20 @@
         </div>
       </details>
 
+      <!-- CHANGE PASSPHRASE (all users). Same nickname at the end; keys preserved. -->
+      <details id="accountPanel" class="panel">
+        <summary>Change passphrase</summary>
+        <div class="panel-body">
+          <form id="changePassForm" class="stack" autocomplete="off">
+            <input id="newPass1" type="password" placeholder="new passphrase (…ending your name)" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required />
+            <input id="newPass2" type="password" placeholder="repeat new passphrase" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required />
+            <label class="show-pw"><input id="showNewPass" type="checkbox" /> <span>Show</span></label>
+            <button type="submit">Update passphrase</button>
+          </form>
+          <p id="changePassMsg" class="panel-note" role="status"></p>
+        </div>
+      </details>
+
       <!-- ADMIN PANEL (only shown when is_admin). -->
       <details id="adminPanel" class="panel admin" hidden>
         <summary>Admin</summary>

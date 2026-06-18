@@ -63,6 +63,16 @@ export async function iceConfig() {
   return jsonOrThrow(res, 'GET /api/call/ice-config');
 }
 
+// ── account: change passphrase (finish step) ────────────────────────────────
+export async function accountPassphraseFinish({ record, wrapped_private_key }) {
+  const res = await fetchImpl(`${base}/api/account/passphrase/finish`, {
+    method: 'POST',
+    headers: authHeaders({ 'content-type': 'application/json' }),
+    body: JSON.stringify({ record, wrapped_private_key }),
+  });
+  return jsonOrThrow(res, 'POST /api/account/passphrase/finish');
+}
+
 export async function getKeys() {
   const res = await fetchImpl(`${base}/api/keys`, { headers: authHeaders() });
   return jsonOrThrow(res, 'GET /api/keys');

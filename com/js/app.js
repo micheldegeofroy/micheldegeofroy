@@ -366,6 +366,27 @@ async function addPersonToRoom(cid, uid) {
 }
 
 function wireOnboardingForms() {
+  $('showNewPass')?.addEventListener('change', (e) => {
+    const t = e.target.checked ? 'text' : 'password';
+    $('newPass1').type = t; $('newPass2').type = t;
+  });
+  $('changePassForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const p1 = $('newPass1').value;
+    const p2 = $('newPass2').value;
+    if (!p1) return;
+    if (p1 !== p2) { setNote('changePassMsg', 'The two passphrases do not match.', 'err'); return; }
+    setNote('changePassMsg', 'Updating…');
+    try {
+      await session.changePassphrase(p1);
+      $('newPass1').value = '';
+      $('newPass2').value = '';
+      setNote('changePassMsg', 'Passphrase updated. Use the new one next time you sign in.', 'ok');
+    } catch (err) {
+      setNote('changePassMsg', err?.message || 'Could not update passphrase.', 'err');
+    }
+  });
+
   $('createUserForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const nickname = $('newNick').value.trim();

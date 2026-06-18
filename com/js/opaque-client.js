@@ -34,10 +34,10 @@ const toB64 = (bytes) => bytesToB64(bytes);
 const fromB64ToNums = (b64) => b64ToNums(b64);
 const unwrap = (x, where) => { if (x instanceof Error) throw new Error(`${where}: ${x.message}`); return x; };
 
-async function postJson(fetchImpl, base, path, body) {
+async function postJson(fetchImpl, base, path, body, extraHeaders = {}) {
   const res = await fetchImpl(`${base}${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...extraHeaders },
     body: JSON.stringify(body),
   });
   const text = await res.text();
@@ -62,6 +62,23 @@ export async function register(passphrase, nickname, base, fetchImpl = globalThi
   const { response } = await postJson(fetchImpl, base, '/api/opaque/register/start', {
     nickname, request: ser(req), honeypot,
   });
+  const resp = RegistrationResponse.deserialize(cfg, fromB64ToNums(response));
+  const fin = unwrap(await client.registerFinish(resp, serverId, nickname), 'client.registerFinish');
+  return {
+    record: toB64(fin.record.serialize()),
+    exportKey: Uint8Array.from(fin.export_key),
+  };
+}
+
+// changePassword: re-run OPAQUE registration for an AUTHENTICATED user against
+// the account endpoint (Bearer token), returning { record, exportKey }. The
+// caller re-wraps the SAME identity private key under the new export_key and
+// posts it to /api/account/passphrase/finish. The nickname is unchanged.
+export async function changePassword(passphrase, nickname, base, fetchImpl = globalThis.fetch, serverId = DEFAULT_SERVER_ID, authToken = '') {
+  const client = new OpaqueClient(cfg);
+  const req = unwrap(await client.registerInit(passphrase), 'client.registerInit');
+  const headers = authToken ? { authorization: `Bearer ${authToken}` } : {};
+  const { response } = await postJson(fetchImpl, base, '/api/account/passphrase/start', { request: ser(req) }, headers);
   const resp = RegistrationResponse.deserialize(cfg, fromB64ToNums(response));
   const fin = unwrap(await client.registerFinish(resp, serverId, nickname), 'client.registerFinish');
   return {

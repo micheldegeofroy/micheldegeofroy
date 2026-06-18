@@ -255,6 +255,31 @@ export class Session {
     return api.adminDeleteUser(userId);
   }
 
+  // changePassphrase(newPassphrase) — rotate the OPAQUE secret for THIS user.
+  // Keeps the same nickname (login identity) and the same X25519 identity keypair,
+  // so all sealed conversation keys stay decryptable. Re-runs OPAQUE registration
+  // with the new passphrase, re-wraps the in-memory private key under the new
+  // export_key, and uploads both. The new passphrase MUST still end with the same
+  // nickname (that is how the user logs in afterwards).
+  async changePassphrase(newPassphrase) {
+    if (!this.token || !this.privateKey) throw new Error('not signed in');
+    await sodium.ready();
+    this._use();
+    const norm = normalizePassphrase(newPassphrase);
+    const newNick = nicknameFromPassphrase(norm);
+    if (newNick !== this.nickname) {
+      throw new Error(`Your new passphrase must still end with your name "${this.nickname}".`);
+    }
+    const { record, exportKey } = await opaque.changePassword(
+      norm, this.nickname, this.base, this.fetchImpl, undefined, this.token,
+    );
+    const wrappedPrivateKey = sodium.wrapPrivateKey(this.privateKey, exportKey);
+    await api.accountPassphraseFinish({
+      record,
+      wrapped_private_key: sodium.toB64(wrappedPrivateKey),
+    });
+  }
+
   // ── WebRTC call signaling (thin wrappers that bind api to THIS session) ──────
   callOffer(to, sdp, id) { this._use(); return api.callOffer(to, sdp, id); }
   callAnswer(to, sdp, id) { this._use(); return api.callAnswer(to, sdp, id); }
